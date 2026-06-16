@@ -37,5 +37,15 @@ export async function runShot(
     tier: gen.tier,
     qcStatus,
     blocked: gen.blocked,
+    meta: {
+      spec, // full spec, so the result screen can regenerate or animate identically
+      referenceImagePaths: spec.referenceImagePaths,
+      category: spec.category,
+      subType: spec.subType,
+      shotType: spec.shotType,
+      format: spec.format ?? null,
+      aiLabel: spec.aiLabel ?? true,
+      video: spec.video ?? null,
+    },
   });
 }

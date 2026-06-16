@@ -1,16 +1,9 @@
 import "server-only";
 import { estimate, type EstimateInput } from "./estimator";
 import { lookup, isAsyncNeed, type Need } from "./registry";
-import {
-  createJob,
-  markJobDone,
-  markJobFailed,
-  setJobRequestId,
-  type Tier,
-  type QcStatus,
-} from "./jobs";
+import { createJob, markJobDone, markJobFailed, type Tier, type QcStatus } from "./jobs";
 import { reserveCredits, settleCredits, refundCredits } from "./credits";
-import { runSync, submitAsync } from "./fal";
+import { runSync } from "./fal";
 import { storeOutputFromUrl } from "./storage";
 
 // Orchestration for the async job flow (Section 3.3).
@@ -35,6 +28,8 @@ export interface RunInput {
   parentJobId?: string | null;
   /** When set, do not generate: reserve, refund, and surface this message (RED block). */
   blocked?: string;
+  /** Extra metadata stored on the job payload (shot spec summary, reference paths, etc.). */
+  meta?: Record<string, unknown>;
 }
 
 // Best-effort extraction of the first output URL from a fal result payload.
@@ -79,7 +74,7 @@ export async function runJob(input: RunInput): Promise<RunResult> {
     userId: input.userId,
     userEmail: input.userEmail,
     type: input.need,
-    payload: { falInput: input.falInput, estimate: est },
+    payload: { falInput: input.falInput, estimate: est, meta: input.meta ?? {} },
     estimatedCredits: est.credits,
     tier: input.tier ?? null,
     qcStatus,
@@ -103,28 +98,18 @@ export async function runJob(input: RunInput): Promise<RunResult> {
   }
 
   if (isAsyncNeed(input.need)) {
-    try {
-      const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/jobs/fal-webhook`;
-      const requestId = await submitAsync(entry.slug, input.falInput, webhookUrl);
-      await setJobRequestId(job.id, requestId);
-      return {
-        jobId: job.id,
-        status: "queued",
-        tier: input.tier,
-        qcStatus,
-        estimatedCredits: est.credits,
-        falRequestId: requestId,
-      };
-    } catch (err) {
-      await refundCredits(input.userId, est.credits, job.id);
-      await markJobFailed(job.id, String(err));
-      return {
-        jobId: job.id,
-        status: "failed",
-        estimatedCredits: est.credits,
-        message: "Generation could not start. Your credits were refunded.",
-      };
-    }
+    // ASYNC (video): the job is reserved and left queued. The Railway worker claims it
+    // atomically and submits it to fal with the webhook URL; the webhook settles credits.
+    // We intentionally do NOT submit inline here, so the worker is the single submitter and
+    // there is no double-processing.
+    void entry; // slug is used by the worker, not here
+    return {
+      jobId: job.id,
+      status: "queued",
+      tier: input.tier,
+      qcStatus,
+      estimatedCredits: est.credits,
+    };
   }
 
   // SYNC: run to completion within the request.
