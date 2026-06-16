@@ -1,0 +1,56 @@
+/* Drape brand tokens (Section 1). Exact hex values, defined once as CSS variables. */
+:root {
+  --ink: #161616;
+  --porcelain: #faf7f2;
+  --saffron: #ff6a3d;
+  --orchid: #c44bc9;
+  --fog: #9b9b9b;
+  --ink-soft: #2a2a2a;
+  --line: #e8e2d9;
+  --success: #2e9e5b;
+  --caution: #e8a33d;
+  --danger: #d9483b;
+
+  --gradient-brand: linear-gradient(135deg, #ff6a3d 0%, #c44bc9 100%);
+
+  --font-display: var(--font-fraunces), "Playfair Display", Georgia, serif;
+  --font-ui: var(--font-inter), system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--font-ui);
+  color: var(--porcelain);
+  background: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.05;
+  margin: 0;
+}
+
+a {
+  color: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
+}
