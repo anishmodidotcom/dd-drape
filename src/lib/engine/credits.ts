@@ -5,13 +5,13 @@ import { InsufficientCreditsError } from "./ledger";
 // Server-side credit lifecycle. Wraps the SECURITY DEFINER Postgres functions.
 //
 // VERIFY FUNCTION SIGNATURES (rule 9). These RPC calls MUST match the SQL in
-// supabase/migrations/0001_init.sql exactly, arg name + type + count:
-//   grant_credits(p_user_id uuid, p_amount bigint, p_note text)
-//   debit_credits(p_user_id uuid, p_amount bigint, p_job_id uuid, p_kind text, p_gate boolean, p_note text)
+// supabase/migrations/0001_drape_init.sql exactly, arg name + type + count:
+//   drape_grant_credits(p_user_id uuid, p_amount bigint, p_note text)
+//   drape_debit_credits(p_user_id uuid, p_amount bigint, p_job_id uuid, p_kind text, p_gate boolean, p_note text)
 
 export async function grantCredits(userId: string, amount: number, note?: string) {
   const admin = getAdminClient();
-  const { data, error } = await admin.rpc("grant_credits", {
+  const { data, error } = await admin.rpc("drape_grant_credits", {
     p_user_id: userId,
     p_amount: amount,
     p_note: note ?? null,
@@ -28,7 +28,7 @@ export async function reserveCredits(
   note?: string
 ) {
   const admin = getAdminClient();
-  const { data, error } = await admin.rpc("debit_credits", {
+  const { data, error } = await admin.rpc("drape_debit_credits", {
     p_user_id: userId,
     p_amount: estimated,
     p_job_id: jobId,
@@ -54,7 +54,7 @@ export async function settleCredits(
 ) {
   const admin = getAdminClient();
   const delta = actual - estimated;
-  const { data, error } = await admin.rpc("debit_credits", {
+  const { data, error } = await admin.rpc("drape_debit_credits", {
     p_user_id: userId,
     p_amount: delta,
     p_job_id: jobId,
@@ -69,7 +69,7 @@ export async function settleCredits(
 /** REFUND on failure: credit the full reserved amount back (nothing was spent). */
 export async function refundCredits(userId: string, reserved: number, jobId: string) {
   const admin = getAdminClient();
-  const { data, error } = await admin.rpc("debit_credits", {
+  const { data, error } = await admin.rpc("drape_debit_credits", {
     p_user_id: userId,
     p_amount: -reserved, // negative debit = credit back
     p_job_id: jobId,

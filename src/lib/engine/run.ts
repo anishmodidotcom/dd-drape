@@ -1,7 +1,14 @@
 import "server-only";
 import { estimate, type EstimateInput } from "./estimator";
 import { lookup, isAsyncNeed, type Need } from "./registry";
-import { createJob, markJobDone, markJobFailed, setJobRequestId } from "./jobs";
+import {
+  createJob,
+  markJobDone,
+  markJobFailed,
+  setJobRequestId,
+  type Tier,
+  type QcStatus,
+} from "./jobs";
 import { reserveCredits, settleCredits, refundCredits } from "./credits";
 import { runSync, submitAsync } from "./fal";
 import { storeOutputFromUrl } from "./storage";
@@ -10,18 +17,24 @@ import { storeOutputFromUrl } from "./storage";
 //
 // SYNC (image / try-on / edit): estimate -> create job -> RESERVE -> run fal -> store -> SETTLE.
 //   On any failure after reserve, REFUND the reservation and mark the job failed.
-//
 // ASYNC (video): estimate -> create job -> RESERVE -> submit to fal with webhook URL.
 //   The webhook route later stores the output and SETTLES. On submit failure, REFUND.
+// RED BLOCK: create job -> RESERVE -> immediately REFUND -> mark failed with a clear message.
+//   No silent dead-ends: the reservation is always returned and the UI shows why.
+
+export const RED_BLOCK_PREFIX = "RED_BLOCK: ";
 
 export interface RunInput {
   userId: string;
   userEmail?: string | null;
   need: Need;
-  /** fal input arguments (reference image URLs, prompt, etc.). */
   falInput: Record<string, unknown>;
-  /** Sizing for the estimate (count / seconds / megapixels). */
   estimateExtras?: Omit<EstimateInput, "need">;
+  tier?: Tier | null;
+  qcStatus?: QcStatus;
+  parentJobId?: string | null;
+  /** When set, do not generate: reserve, refund, and surface this message (RED block). */
+  blocked?: string;
 }
 
 // Best-effort extraction of the first output URL from a fal result payload.
@@ -44,34 +57,52 @@ export function firstOutputUrl(data: unknown): string | null {
   return null;
 }
 
+export type RunStatus = "done" | "queued" | "failed" | "blocked";
+
 export interface RunResult {
   jobId: string;
-  status: "done" | "queued" | "failed";
+  status: RunStatus;
+  tier?: Tier | null;
+  qcStatus?: QcStatus;
   estimatedCredits: number;
   resultPath?: string;
   falRequestId?: string;
+  message?: string;
 }
 
 export async function runJob(input: RunInput): Promise<RunResult> {
   const est = estimate({ need: input.need, ...input.estimateExtras });
   const entry = lookup(input.need);
+  const qcStatus: QcStatus = input.qcStatus ?? "none";
 
-  // Create the job first so we have an id to attach ledger transactions to.
   const job = await createJob({
     userId: input.userId,
     userEmail: input.userEmail,
     type: input.need,
     payload: { falInput: input.falInput, estimate: est },
     estimatedCredits: est.credits,
+    tier: input.tier ?? null,
+    qcStatus,
+    parentJobId: input.parentJobId ?? null,
   });
 
-  // RESERVE at submit (gates on balance). If this throws, the job stays queued with no spend;
-  // caller surfaces the insufficient-credits error.
+  // RESERVE at submit (gates on balance). Throws InsufficientCreditsError if unaffordable.
   await reserveCredits(input.userId, est.credits, job.id, `reserve ${input.need}`);
 
+  // RED block: nothing is generated. Refund the reservation and surface a clear message.
+  if (input.blocked) {
+    await refundCredits(input.userId, est.credits, job.id);
+    await markJobFailed(job.id, `${RED_BLOCK_PREFIX}${input.blocked}`);
+    return {
+      jobId: job.id,
+      status: "blocked",
+      tier: input.tier,
+      estimatedCredits: est.credits,
+      message: input.blocked,
+    };
+  }
+
   if (isAsyncNeed(input.need)) {
-    // ASYNC: submit to fal with a webhook; the worker normally drives this, but submit here
-    // when called inline. Settlement happens in the webhook route.
     try {
       const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/jobs/fal-webhook`;
       const requestId = await submitAsync(entry.slug, input.falInput, webhookUrl);
@@ -79,13 +110,20 @@ export async function runJob(input: RunInput): Promise<RunResult> {
       return {
         jobId: job.id,
         status: "queued",
+        tier: input.tier,
+        qcStatus,
         estimatedCredits: est.credits,
         falRequestId: requestId,
       };
     } catch (err) {
       await refundCredits(input.userId, est.credits, job.id);
       await markJobFailed(job.id, String(err));
-      return { jobId: job.id, status: "failed", estimatedCredits: est.credits };
+      return {
+        jobId: job.id,
+        status: "failed",
+        estimatedCredits: est.credits,
+        message: "Generation could not start. Your credits were refunded.",
+      };
     }
   }
 
@@ -98,15 +136,15 @@ export async function runJob(input: RunInput): Promise<RunResult> {
     const ext = input.need.startsWith("video/") ? "mp4" : "png";
     const path = await storeOutputFromUrl(input.userId, job.id, url, ext);
 
-    // Actual cost equals the estimate for fixed per-unit image models; settle the (zero) delta
-    // so the ledger records a settle row and supports variable-cost models later.
-    const actual = est.credits;
+    const actual = est.credits; // fixed per-unit cost; settle records the (zero) delta
     await settleCredits(input.userId, est.credits, actual, job.id);
     await markJobDone(job.id, path, actual, requestId);
 
     return {
       jobId: job.id,
       status: "done",
+      tier: input.tier,
+      qcStatus,
       estimatedCredits: est.credits,
       resultPath: path,
       falRequestId: requestId,
@@ -114,6 +152,11 @@ export async function runJob(input: RunInput): Promise<RunResult> {
   } catch (err) {
     await refundCredits(input.userId, est.credits, job.id);
     await markJobFailed(job.id, String(err));
-    return { jobId: job.id, status: "failed", estimatedCredits: est.credits };
+    return {
+      jobId: job.id,
+      status: "failed",
+      estimatedCredits: est.credits,
+      message: "Generation failed. Your credits were refunded.",
+    };
   }
 }

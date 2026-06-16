@@ -1,40 +1,43 @@
--- Drape Phase 0: engine spine schema.
+-- Drape v1 schema. Shared CGE Supabase project: EVERYTHING is namespaced with drape_ (tables,
+-- functions) or drape- (storage bucket), and we NEVER alter or drop any non-drape object.
 --
--- Design rules enforced here:
+-- Safety:
+--   * Run supabase/verify_no_collision.sql FIRST and confirm it returns zero rows before applying.
+--   * All objects are create-if-not-exists / create-or-replace and only touch drape_* names.
+--   * The auth.users trigger is named drape_on_auth_user_created so it coexists with any CGE
+--     trigger on the same table (Postgres fires all triggers).
+--
+-- Design rules (unchanged):
 --   * RLS enabled on every table from birth, with NO permissive anon/authenticated policy.
---     The service-role backend bypasses RLS. Clients can only read their own rows via the
---     SELECT policies below; all writes go through service-role / SECURITY DEFINER functions.
+--     Clients read only their own rows; all writes go through service-role / SECURITY DEFINER.
 --   * Credits ledger is the single source of truth for spend. 1 credit = $0.01 of provider cost.
 --   * Money functions are SECURITY DEFINER, search_path='', EXECUTE granted to service_role only.
---
--- Apply with the Supabase CLI:  supabase db push   (or paste into the SQL editor).
 
 create extension if not exists "pgcrypto";
 
 -- ---------------------------------------------------------------------------
--- credit_balances: one row per user. Single mutable balance.
+-- drape_credit_balances: one row per user. Single mutable balance.
 -- ---------------------------------------------------------------------------
-create table if not exists public.credit_balances (
+create table if not exists public.drape_credit_balances (
   user_id    uuid primary key references auth.users (id) on delete cascade,
   balance    bigint not null default 0 check (balance >= 0),
   updated_at timestamptz not null default now()
 );
 
-alter table public.credit_balances enable row level security;
+alter table public.drape_credit_balances enable row level security;
 
--- Users may READ their own balance. No insert/update/delete policy => clients cannot mutate.
-create policy "balances_select_own"
-  on public.credit_balances
+create policy "drape_balances_select_own"
+  on public.drape_credit_balances
   for select
   to authenticated
   using (user_id = (select auth.uid()));
 
 -- ---------------------------------------------------------------------------
--- credit_transactions: append-only ledger. Never updated, never deleted.
+-- drape_credit_transactions: append-only ledger. Never updated, never deleted.
 --   kind: grant | reserve | settle | refund
 --   amount: signed change to balance (negative = debit, positive = credit)
 -- ---------------------------------------------------------------------------
-create table if not exists public.credit_transactions (
+create table if not exists public.drape_credit_transactions (
   id            uuid primary key default gen_random_uuid(),
   user_id       uuid not null references auth.users (id) on delete cascade,
   job_id        uuid,
@@ -45,25 +48,25 @@ create table if not exists public.credit_transactions (
   created_at    timestamptz not null default now()
 );
 
-create index if not exists credit_transactions_user_idx
-  on public.credit_transactions (user_id, created_at desc);
-create index if not exists credit_transactions_job_idx
-  on public.credit_transactions (job_id);
+create index if not exists drape_credit_transactions_user_idx
+  on public.drape_credit_transactions (user_id, created_at desc);
+create index if not exists drape_credit_transactions_job_idx
+  on public.drape_credit_transactions (job_id);
 
-alter table public.credit_transactions enable row level security;
+alter table public.drape_credit_transactions enable row level security;
 
-create policy "transactions_select_own"
-  on public.credit_transactions
+create policy "drape_transactions_select_own"
+  on public.drape_credit_transactions
   for select
   to authenticated
   using (user_id = (select auth.uid()));
 
 -- ---------------------------------------------------------------------------
--- jobs: async generation jobs.
+-- drape_jobs: async generation jobs.
 -- ---------------------------------------------------------------------------
-create table if not exists public.jobs (
+create table if not exists public.drape_jobs (
   id                uuid primary key default gen_random_uuid(),
-  tenant_id         uuid not null,            -- defaults to user_id today; room for orgs later
+  tenant_id         uuid not null,
   user_id           uuid not null references auth.users (id) on delete cascade,
   user_email        text,
   type              text not null,            -- engine NEED, e.g. image/standard, video/hero
@@ -71,24 +74,29 @@ create table if not exists public.jobs (
   payload           jsonb not null default '{}'::jsonb,
   status            text not null default 'queued'
                       check (status in ('queued', 'running', 'done', 'failed')),
+  tier              text check (tier in ('green', 'amber', 'red')),
+  qc_status         text not null default 'none'
+                      check (qc_status in ('none', 'pending', 'approved')),
   estimated_credits bigint not null default 0,
   actual_credits    bigint,
   attempts          int not null default 0,
   last_error        text,
-  result_ref        text,                     -- storage path / signed-url key for output
+  result_ref        text,                     -- storage path for output
+  thumb_ref         text,                     -- storage path for a thumbnail / first frame
+  parent_job_id     uuid,                     -- e.g. video generated from a still
   fal_request_id    text,
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );
 
-create index if not exists jobs_user_idx on public.jobs (user_id, created_at desc);
-create index if not exists jobs_status_idx on public.jobs (status, created_at);
-create index if not exists jobs_fal_request_idx on public.jobs (fal_request_id);
+create index if not exists drape_jobs_user_idx on public.drape_jobs (user_id, created_at desc);
+create index if not exists drape_jobs_status_idx on public.drape_jobs (status, created_at);
+create index if not exists drape_jobs_fal_request_idx on public.drape_jobs (fal_request_id);
 
-alter table public.jobs enable row level security;
+alter table public.drape_jobs enable row level security;
 
-create policy "jobs_select_own"
-  on public.jobs
+create policy "drape_jobs_select_own"
+  on public.drape_jobs
   for select
   to authenticated
   using (user_id = (select auth.uid()));
@@ -97,9 +105,7 @@ create policy "jobs_select_own"
 -- Money functions. SECURITY DEFINER, locked search_path, service_role only.
 -- ---------------------------------------------------------------------------
 
--- grant_credits: add credits to a balance (signup grant, manual top-up).
--- Upserts the balance row, appends a 'grant' transaction. Returns new balance.
-create or replace function public.grant_credits(
+create or replace function public.drape_grant_credits(
   p_user_id uuid,
   p_amount  bigint,
   p_note    text default null
@@ -117,28 +123,26 @@ begin
       using errcode = 'check_violation';
   end if;
 
-  insert into public.credit_balances (user_id, balance, updated_at)
+  insert into public.drape_credit_balances (user_id, balance, updated_at)
   values (p_user_id, p_amount, now())
   on conflict (user_id)
-  do update set balance = public.credit_balances.balance + p_amount,
+  do update set balance = public.drape_credit_balances.balance + p_amount,
                 updated_at = now()
   returning balance into v_balance;
 
-  insert into public.credit_transactions (user_id, job_id, kind, amount, balance_after, note)
+  insert into public.drape_credit_transactions (user_id, job_id, kind, amount, balance_after, note)
   values (p_user_id, null, 'grant', p_amount, v_balance, p_note);
 
   return v_balance;
 end;
 $$;
 
--- debit_credits: generic signed debit used for reserve / settle / refund.
+-- drape_debit_credits: generic signed debit used for reserve / settle / refund.
 --   p_amount is the MAGNITUDE TO DEBIT (positive = subtract from balance).
 --     reserve: p_amount = estimated_credits,  p_kind='reserve', p_gate=true
 --     settle:  p_amount = actual - estimated, p_kind='settle',  p_gate=false  (may be negative)
 --     refund:  p_amount = -reserved_credits,  p_kind='refund',  p_gate=false  (negative = credit back)
---   p_gate=true rejects the operation if it would drive the balance below zero.
--- Returns the new balance.
-create or replace function public.debit_credits(
+create or replace function public.drape_debit_credits(
   p_user_id uuid,
   p_amount  bigint,
   p_job_id  uuid,
@@ -157,22 +161,20 @@ declare
   v_balance bigint;
 begin
   if p_kind not in ('reserve', 'settle', 'refund') then
-    raise exception 'debit_credits invalid kind %', p_kind
+    raise exception 'drape_debit_credits invalid kind %', p_kind
       using errcode = 'check_violation';
   end if;
 
-  -- Lock the balance row for the duration of the transaction.
   select balance into v_current
-    from public.credit_balances
+    from public.drape_credit_balances
     where user_id = p_user_id
     for update;
 
   if not found then
     v_current := 0;
-    insert into public.credit_balances (user_id, balance) values (p_user_id, 0);
+    insert into public.drape_credit_balances (user_id, balance) values (p_user_id, 0);
   end if;
 
-  -- A debit reduces the balance; signed amount applied as a negative delta.
   v_delta := -p_amount;
 
   if p_gate and (v_current + v_delta) < 0 then
@@ -180,40 +182,38 @@ begin
       using errcode = 'check_violation';
   end if;
 
-  update public.credit_balances
+  update public.drape_credit_balances
     set balance = balance + v_delta,
         updated_at = now()
     where user_id = p_user_id
     returning balance into v_balance;
 
-  insert into public.credit_transactions (user_id, job_id, kind, amount, balance_after, note)
+  insert into public.drape_credit_transactions (user_id, job_id, kind, amount, balance_after, note)
   values (p_user_id, p_job_id, p_kind, v_delta, v_balance, p_note);
 
   return v_balance;
 end;
 $$;
 
--- Lock down execution: revoke from public/anon/authenticated, grant only to service_role.
-revoke all on function public.grant_credits(uuid, bigint, text) from public;
-revoke all on function public.debit_credits(uuid, bigint, uuid, text, boolean, text) from public;
-grant execute on function public.grant_credits(uuid, bigint, text) to service_role;
-grant execute on function public.debit_credits(uuid, bigint, uuid, text, boolean, text) to service_role;
+revoke all on function public.drape_grant_credits(uuid, bigint, text) from public;
+revoke all on function public.drape_debit_credits(uuid, bigint, uuid, text, boolean, text) from public;
+grant execute on function public.drape_grant_credits(uuid, bigint, text) to service_role;
+grant execute on function public.drape_debit_credits(uuid, bigint, uuid, text, boolean, text) to service_role;
 
 -- ---------------------------------------------------------------------------
--- Atomic job claim for the worker. Claims one queued job of the given types,
--- flips it to running, bumps attempts. SKIP LOCKED so parallel workers don't collide.
+-- Atomic job claim for the worker (FOR UPDATE SKIP LOCKED).
 -- ---------------------------------------------------------------------------
-create or replace function public.claim_next_job(p_types text[])
-returns public.jobs
+create or replace function public.drape_claim_next_job(p_types text[])
+returns public.drape_jobs
 language plpgsql
 security definer
 set search_path = ''
 as $$
 declare
-  v_job public.jobs;
+  v_job public.drape_jobs;
 begin
   select * into v_job
-    from public.jobs
+    from public.drape_jobs
     where status = 'queued' and type = any(p_types)
     order by created_at
     for update skip locked
@@ -223,7 +223,7 @@ begin
     return null;
   end if;
 
-  update public.jobs
+  update public.drape_jobs
     set status = 'running', attempts = attempts + 1, updated_at = now()
     where id = v_job.id
     returning * into v_job;
@@ -232,26 +232,26 @@ begin
 end;
 $$;
 
-revoke all on function public.claim_next_job(text[]) from public;
-grant execute on function public.claim_next_job(text[]) to service_role;
+revoke all on function public.drape_claim_next_job(text[]) from public;
+grant execute on function public.drape_claim_next_job(text[]) to service_role;
 
 -- ---------------------------------------------------------------------------
--- New-user signup grant: 100 free credits ($1 of provider spend) on user creation.
--- Stubbed payments (Phase 0/Section 9): keeps the ledger live and correct.
+-- New-user signup grant: 400 free credits ($4 of provider spend) on user creation.
+-- Trigger name is drape-namespaced so it coexists with any CGE trigger on auth.users.
 -- ---------------------------------------------------------------------------
-create or replace function public.handle_new_user()
+create or replace function public.drape_handle_new_user()
 returns trigger
 language plpgsql
 security definer
 set search_path = ''
 as $$
 begin
-  perform public.grant_credits(new.id, 100, 'signup_grant');
+  perform public.drape_grant_credits(new.id, 400, 'signup_grant');
   return new;
 end;
 $$;
 
-drop trigger if exists on_auth_user_created on auth.users;
-create trigger on_auth_user_created
+drop trigger if exists drape_on_auth_user_created on auth.users;
+create trigger drape_on_auth_user_created
   after insert on auth.users
-  for each row execute function public.handle_new_user();
+  for each row execute function public.drape_handle_new_user();

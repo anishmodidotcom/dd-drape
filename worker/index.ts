@@ -50,7 +50,7 @@ interface ClaimedJob {
 }
 
 async function claimNext(): Promise<ClaimedJob | null> {
-  const { data, error } = await admin.rpc("claim_next_job", { p_types: VIDEO_NEEDS });
+  const { data, error } = await admin.rpc("drape_claim_next_job", { p_types: VIDEO_NEEDS });
   if (error) {
     console.error("claim_next_job failed:", error.message);
     return null;
@@ -66,14 +66,14 @@ async function processJob(job: ClaimedJob) {
   try {
     const { request_id } = await fal.queue.submit(slug, { input: falInput, webhookUrl });
     await admin
-      .from("jobs")
+      .from("drape_jobs")
       .update({ fal_request_id: request_id, updated_at: new Date().toISOString() })
       .eq("id", job.id);
     console.log(`submitted job ${job.id} -> fal ${request_id}`);
   } catch (err) {
     // Submission failed: mark failed and refund the reservation (nothing was spent).
     console.error(`job ${job.id} submit failed:`, err);
-    await admin.rpc("debit_credits", {
+    await admin.rpc("drape_debit_credits", {
       p_user_id: job.user_id,
       p_amount: -job.estimated_credits, // negative debit = credit the reservation back
       p_job_id: job.id,
@@ -82,7 +82,7 @@ async function processJob(job: ClaimedJob) {
       p_note: "worker submit failure",
     });
     await admin
-      .from("jobs")
+      .from("drape_jobs")
       .update({ status: "failed", last_error: String(err).slice(0, 2000) })
       .eq("id", job.id);
   }

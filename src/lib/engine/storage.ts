@@ -4,7 +4,7 @@ import { getAdminClient } from "@/lib/supabase/admin";
 // Outputs from fal come back as hosted URLs. We download them and store in a PRIVATE
 // Supabase Storage bucket, then serve to the owner via short-lived signed URLs.
 
-export const OUTPUT_BUCKET = "outputs";
+export const OUTPUT_BUCKET = "drape-outputs";
 
 /** Download a hosted output URL and store it under the user's namespace. Returns the path. */
 export async function storeOutputFromUrl(
@@ -19,7 +19,7 @@ export async function storeOutputFromUrl(
   const contentType = res.headers.get("content-type") ?? "application/octet-stream";
   const bytes = new Uint8Array(await res.arrayBuffer());
 
-  const path = `${userId}/${jobId}.${ext}`;
+  const path = `results/${userId}/${jobId}.${ext}`;
   const { error } = await admin.storage
     .from(OUTPUT_BUCKET)
     .upload(path, bytes, { contentType, upsert: true });
@@ -27,12 +27,45 @@ export async function storeOutputFromUrl(
   return path;
 }
 
-/** Short-lived signed URL for a stored output. */
-export async function signedOutputUrl(path: string, expiresInSeconds = 3600): Promise<string> {
+const ALLOWED_UPLOAD_TYPES = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "video/mp4",
+  "video/quicktime",
+]);
+
+/** Store a user upload (product photo or vibe reference) under uploads/. Returns the path. */
+export async function storeUpload(
+  userId: string,
+  bytes: Uint8Array,
+  contentType: string,
+  ext: string
+): Promise<string> {
+  if (!ALLOWED_UPLOAD_TYPES.has(contentType)) {
+    throw new Error(`Unsupported upload type: ${contentType}`);
+  }
+  const admin = getAdminClient();
+  const id = crypto.randomUUID();
+  const path = `uploads/${userId}/${id}.${ext}`;
+  const { error } = await admin.storage
+    .from(OUTPUT_BUCKET)
+    .upload(path, bytes, { contentType, upsert: false });
+  if (error) throw new Error(`storeUpload failed: ${error.message}`);
+  return path;
+}
+
+/** Short-lived signed URL for any stored object (result or upload). */
+export async function signedUrl(path: string, expiresInSeconds = 3600): Promise<string> {
   const admin = getAdminClient();
   const { data, error } = await admin.storage
     .from(OUTPUT_BUCKET)
     .createSignedUrl(path, expiresInSeconds);
-  if (error) throw new Error(`signedOutputUrl failed: ${error.message}`);
+  if (error) throw new Error(`signedUrl failed: ${error.message}`);
   return data.signedUrl;
+}
+
+/** A stored object path belongs to a user only if it sits under their namespace. */
+export function pathBelongsToUser(path: string, userId: string): boolean {
+  return path.startsWith(`uploads/${userId}/`) || path.startsWith(`results/${userId}/`);
 }
