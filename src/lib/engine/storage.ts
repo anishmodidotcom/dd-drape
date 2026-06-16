@@ -69,3 +69,19 @@ export async function signedUrl(path: string, expiresInSeconds = 3600): Promise<
 export function pathBelongsToUser(path: string, userId: string): boolean {
   return path.startsWith(`uploads/${userId}/`) || path.startsWith(`results/${userId}/`);
 }
+
+/** Write the C2PA-style provenance sidecar next to an output. Returns the manifest path. */
+export async function storeManifest(
+  userId: string,
+  jobId: string,
+  manifest: unknown
+): Promise<string> {
+  const admin = getAdminClient();
+  const path = `results/${userId}/${jobId}.c2pa.json`;
+  const bytes = new TextEncoder().encode(JSON.stringify(manifest, null, 2));
+  const { error } = await admin.storage
+    .from(OUTPUT_BUCKET)
+    .upload(path, bytes, { contentType: "application/json", upsert: true });
+  if (error) throw new Error(`storeManifest failed: ${error.message}`);
+  return path;
+}

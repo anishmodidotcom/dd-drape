@@ -28,8 +28,14 @@ npm run worker     # tsx worker/index.ts
 - `NEXT_PUBLIC_APP_URL` (used to build the webhook URL)
 - `WORKER_POLL_MS` (optional, default 5000)
 
+## ffmpeg stitching
+
+`worker/stitch.ts` concatenates multiple short clips into one MP4 for longer sequences (models
+drift after ~10s, so we generate 5-8s clips and join them). `nixpacks.toml` provisions ffmpeg on
+Railway. The single-clip path does not need stitching.
+
 ## Deploy separately
 
-This worker deploys to Railway independently of the Vercel app. A merge to the Next app does NOT
-redeploy the worker. After changing shared logic (registry slugs, ledger flow), redeploy BOTH.
-Start command on Railway: `npm run worker`.
+This worker deploys to Railway independently of the Vercel app (config in `nixpacks.toml`). A merge
+to the Next app does NOT redeploy the worker. After changing shared logic (registry slugs, ledger
+flow), redeploy BOTH. Start command on Railway: `npm run worker`.

@@ -1,0 +1,13 @@
+# Railway (nixpacks) config for the Drape video worker.
+# Provisions ffmpeg for clip stitching and runs the poller. Deploy this service separately from
+# the Vercel app; set NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, FAL_KEY,
+# NEXT_PUBLIC_APP_URL in the Railway environment.
+
+[phases.setup]
+nixPkgs = ["nodejs_22", "ffmpeg"]
+
+[phases.install]
+cmds = ["npm ci"]
+
+[start]
+cmd = "npm run worker"

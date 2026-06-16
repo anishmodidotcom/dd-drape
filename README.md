@@ -6,82 +6,67 @@ Drape turns a photo of a real apparel or jewellery product into premium photo an
 that preserves the actual product's exact details. This is reference-locked (image-to-image)
 generation, not text-to-image. Product fidelity is the product.
 
-## Status: Phase 0 (engine spine)
+## Status: v1 (all phases)
 
-Phase 0 builds the spine the rest of the product hangs on. It is complete and tested.
+Engine spine, fidelity core, shot-spec UI + presets, video, and compliance are built and tested.
 
-- Multi-model router: callers ask for a NEED, never a model slug. `src/lib/engine/registry.ts`.
-- Cost estimator: dry-run cost in credits before any spend. `src/lib/engine/estimator.ts`.
-- Prepaid credits ledger: reserve at submit, settle the delta, refund on failure. The ledger is
-  the single source of truth for spend. 1 credit = $0.01 of provider cost.
-- Async job flow: jobs table, sync path for images, worker + webhook path for video.
-- fal webhook: two-layer auth (middleware whitelist + signature verification).
-- RLS from birth: every table has RLS enabled with no permissive anon/authenticated policy.
-- Auth: Supabase email/password + Google OAuth (wired via `@supabase/ssr`).
-- AI-readiness tier router: GREEN / AMBER / RED classification. `src/lib/engine/tier.ts`.
+- Engine spine: model router, prepaid credits ledger (reserve at submit, settle the delta, refund
+  on failure), async jobs, fal webhook (middleware whitelist + signature verify), RLS, auth.
+- Fidelity core: uploads, reference-locked compose with per-category product-lock language, model
+  selection by quality + shot type, RED-tier policy (enhance vs honest block).
+- Shot UI: wizard (upload, category/sub-type, presets vs advanced, video toggle, review with live
+  estimate + tier badge), result screen with before/after reveal, tier behaviour (GREEN/AMBER QC/
+  RED), My shots, Credits + payments stub.
+- Video: i2v from a generated still (worker submits, webhook settles), motion presets with full
+  motion prompts, ffmpeg stitching capability for longer sequences.
+- Compliance: C2PA-style provenance sidecar on every output, "Created with AI" label toggle.
 
-### Phase 0 exit test
+Deferred (out of v1 scope): catalog-consistency LoRA, live payments, WhatsApp, vernacular UI.
 
-The billing lifecycle (reserve -> settle -> refund, insufficient-credits gating, ledger
-conservation) and the router/estimator are proven deterministically:
+## Shared CGE Supabase project
 
-```bash
-npm test          # 28 unit tests, no external services required
-npm run typecheck
-npm run build
-```
+Drape runs in CGE's Supabase. Everything is namespaced and we never touch a non-drape object:
 
-To run the full external end-to-end (real reserve -> $0.04 Seedream generation -> settle ->
-output stored, plus an RLS read check), set the env vars below and follow
-`docs/PHASE0_EXIT_TEST.md`.
+- Tables: `drape_credit_balances`, `drape_credit_transactions`, `drape_jobs`.
+- Functions: `drape_grant_credits`, `drape_debit_credits`, `drape_claim_next_job`,
+  `drape_handle_new_user`. Trigger `drape_on_auth_user_created` coexists with any CGE trigger.
+- Storage bucket: `drape-outputs` (private), with `uploads/` and `results/` prefixes.
+- Run `supabase/verify_no_collision.sql` FIRST; it must return zero rows before applying the
+  migration.
 
 ## Architecture
 
 ```
 Browser ──► Next.js (Vercel) ──► fal.ai            (sync: images, try-on, edits)
                 │  │
-                │  └─► jobs table (Supabase Postgres, RLS)
+                │  └─► drape_jobs (Supabase Postgres, RLS)
                 │
-                └─► Railway worker ──► fal.ai       (async: video, ffmpeg stitching)
+                └─► Railway worker ──► fal.ai       (async: video i2v, ffmpeg stitch)
                           │
         fal webhook ◄─────┘  POST /api/jobs/fal-webhook  (settles credits)
 ```
 
-- Frontend + API routes: Next.js App Router on Vercel.
-- Database: Supabase Postgres. RLS from birth. Service-role key server-side only.
-- Worker: separate long-running service on Railway for video + ffmpeg. Deploys independently of
-  the Next app; a merge to the app does NOT redeploy the worker.
-- Inference: fal.ai. One `FAL_KEY`, server-side only.
-- Storage: private Supabase Storage buckets, signed URLs.
-
 ## Setup
 
-1. Copy env: `cp .env.example .env.local` and fill in values (see `.env.example`).
-2. Create the schema: apply `supabase/migrations/0001_init.sql` (Supabase CLI `supabase db push`
-   or paste into the SQL editor). This enables RLS and creates the money functions.
-3. Create a private Storage bucket named `outputs`.
-4. Enable Google OAuth in the Supabase Auth dashboard.
-5. Install + run: `npm install && npm run dev`.
+1. `cp .env.example .env.local` and fill values (see `.env.example`). Email/password auth only.
+2. Run `supabase/verify_no_collision.sql`, confirm zero rows, then apply
+   `supabase/migrations/0001_drape_init.sql`.
+3. Create a private Storage bucket `drape-outputs`.
+4. `npm install && npm run dev`.
+5. Worker: `npm run worker` (Railway, with ffmpeg). See `worker/README.md`.
 
-## The credits ledger (single source of truth)
+## Credits ledger (single source of truth)
 
-- 1 credit = $0.01 = 1 US cent. Estimates round UP so we never under-reserve.
-- RESERVE at submit debits the estimate and gates on balance. No balance, no generation.
-- SETTLE the delta at completion charges `actual - estimated` (negative credits part back).
-- REFUND on failure returns the full reservation.
-- Money functions (`grant_credits`, `debit_credits`, `claim_next_job`) are `SECURITY DEFINER`,
-  `search_path=''`, EXECUTE granted to `service_role` only. Verify signatures before calling.
+1 credit = $0.01 = 1 cent. Estimates round up. RESERVE at submit gates on balance. SETTLE the
+delta at completion. REFUND on failure and on a RED block. Signup grants 400 credits. Money
+functions are `SECURITY DEFINER`, `search_path=''`, `service_role` only.
 
-## Deploy
+## Tests
 
-- App: Vercel. Set all env vars except they may differ from the worker's.
-- Worker: Railway. `npm run worker` (see `worker/README.md`). Set the server-side env vars there
-  too. Deploy it separately and keep it on current code.
+```bash
+npm test         # 54 deterministic unit tests, no services
+npm run typecheck
+npm run build
+```
 
-## Phases
-
-- Phase 0: engine spine. (this)
-- Phase 1: fidelity core (reference-locked generation, try-on, bg-remove, inpainting).
-- Phase 2: shot-spec wizard + presets + tier behavior + result screen.
-- Phase 3: video (i2v pipeline, worker + ffmpeg stitching, motion presets).
-- Phase 4: polish + compliance/provenance + marketing site.
+The full live exit test (real Supabase + fal) is in `docs/EXIT_TEST.md`.

@@ -4,7 +4,8 @@ import { lookup, isAsyncNeed, type Need } from "./registry";
 import { createJob, markJobDone, markJobFailed, type Tier, type QcStatus } from "./jobs";
 import { reserveCredits, settleCredits, refundCredits } from "./credits";
 import { runSync } from "./fal";
-import { storeOutputFromUrl } from "./storage";
+import { storeOutputFromUrl, storeManifest } from "./storage";
+import { buildProvenanceManifest } from "@/lib/shot/provenance";
 
 // Orchestration for the async job flow (Section 3.3).
 //
@@ -120,6 +121,22 @@ export async function runJob(input: RunInput): Promise<RunResult> {
 
     const ext = input.need.startsWith("video/") ? "mp4" : "png";
     const path = await storeOutputFromUrl(input.userId, job.id, url, ext);
+
+    // Provenance (Section 10): write a C2PA-style manifest sidecar for every output.
+    const meta = input.meta ?? {};
+    await storeManifest(
+      input.userId,
+      job.id,
+      buildProvenanceManifest({
+        jobId: job.id,
+        modelSlug: entry.slug,
+        need: input.need,
+        category: String(meta.category ?? "apparel"),
+        subType: String(meta.subType ?? ""),
+        tier: input.tier ?? null,
+        outputFormat: ext === "mp4" ? "video/mp4" : "image/png",
+      })
+    ).catch(() => undefined);
 
     const actual = est.credits; // fixed per-unit cost; settle records the (zero) delta
     await settleCredits(input.userId, est.credits, actual, job.id);

@@ -5,6 +5,7 @@
 
 import type { Need } from "@/lib/engine/registry";
 import { classifyTier, type Tier } from "@/lib/engine/tier";
+import { getFormat } from "./formats";
 import type { ShotSpec, Category } from "./spec";
 
 // Human-readable fragments for each enum value, for natural prompt language.
@@ -237,10 +238,14 @@ export function buildGeneration(spec: ShotSpec, referenceUrls: string[]): Genera
 
   // fal input. Nano Banana Pro / edit accept image_urls (up to 14 references) + prompt.
   // Seedream standard accepts a prompt and, for reference-locked i2i, image_urls too.
+  const fmt = getFormat(spec.format);
   const falInput: Record<string, unknown> = {
     prompt,
     num_images: 1,
     output_format: "png",
+    // Output format preset: target dimensions + aspect ratio for the marketplace/social target.
+    image_size: { width: fmt.width, height: fmt.height },
+    aspect_ratio: fmt.ratio === "free" ? undefined : fmt.ratio,
   };
   if (referenceUrls.length) {
     falInput.image_urls = referenceUrls;

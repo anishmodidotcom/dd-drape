@@ -2,8 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkSharedSecret, verifyFalSignature } from "@/lib/engine/fal-webhook";
 import { getJobByRequestId, markJobDone, markJobFailed } from "@/lib/engine/jobs";
 import { settleCredits, refundCredits } from "@/lib/engine/credits";
-import { storeOutputFromUrl } from "@/lib/engine/storage";
+import { storeOutputFromUrl, storeManifest } from "@/lib/engine/storage";
 import { firstOutputUrl } from "@/lib/engine/run";
+import { lookup, type Need } from "@/lib/engine/registry";
+import { buildProvenanceManifest } from "@/lib/shot/provenance";
 
 // POST /api/jobs/fal-webhook
 // fal posts the result of an async (video) job here. This route is whitelisted in middleware
@@ -68,6 +70,22 @@ export async function POST(req: NextRequest) {
     if (!url) throw new Error("webhook payload has no output url");
     const ext = job.type.startsWith("video/") ? "mp4" : "png";
     const path = await storeOutputFromUrl(job.user_id, job.id, url, ext);
+
+    // Provenance sidecar for the video output.
+    const meta = (job.payload?.meta ?? {}) as Record<string, unknown>;
+    await storeManifest(
+      job.user_id,
+      job.id,
+      buildProvenanceManifest({
+        jobId: job.id,
+        modelSlug: lookup(job.type as Need).slug,
+        need: job.type,
+        category: String(meta.category ?? "apparel"),
+        subType: String(meta.subType ?? ""),
+        tier: job.tier,
+        outputFormat: ext === "mp4" ? "video/mp4" : "image/png",
+      })
+    ).catch(() => undefined);
 
     // Fixed per-second cost: actual equals the estimate. Settle the delta (zero today; supports
     // variable-cost models later) and mark done.
