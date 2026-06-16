@@ -72,9 +72,10 @@ async function signIn(email, password) {
   });
   return (await r.json().catch(() => null))?.access_token ?? null;
 }
-async function selectAs(table, key, query = "") {
+async function selectAs(table, token, query = "", apikey = ANON) {
+  // PostgREST: apikey header is always a project key (anon); the per-user JWT goes in Authorization.
   const r = await fetch(`${URL_}/rest/v1/${table}?${query}`, {
-    headers: { apikey: key, Authorization: `Bearer ${key}` },
+    headers: { apikey, Authorization: `Bearer ${token}` },
   });
   return { status: r.status, body: await r.json().catch(() => null) };
 }
