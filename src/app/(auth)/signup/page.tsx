@@ -1,9 +1,12 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/AuthForm";
+import { getUser } from "@/lib/supabase/server";
 
 export const metadata = { title: "Create account. Drape." };
 
-export default function SignupPage() {
+export default async function SignupPage() {
+  if (await getUser()) redirect("/app/new"); // M2: logged-in users skip auth
   return (
     <>
       <Link href="/" className="eyebrow" style={{ display: "block", marginBottom: 20 }}>

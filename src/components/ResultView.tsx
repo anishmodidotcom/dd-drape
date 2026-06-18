@@ -1,11 +1,14 @@
 "use client";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BeforeAfter } from "./BeforeAfter";
 import { LoadingStudio } from "./LoadingStudio";
 import { TierBadge } from "./TierBadge";
+import { CustomSelect } from "./ui/CustomSelect";
+import { useToast } from "./ui/Toast";
 import { TIER_PRESENTATION, QC_CHECKLIST } from "@/lib/shot/qc";
-import { MOTION_PRESETS } from "@/lib/shot/motion";
+import { motionsForCategory, MOTION_PRESETS } from "@/lib/shot/motion";
+import type { Category } from "@/lib/shot/spec";
 import type { Tier } from "@/lib/engine/tier";
 
 interface JobView {
@@ -17,22 +20,30 @@ interface JobView {
   resultUrl: string | null;
   beforeUrl: string | null;
   blocked: string | null;
-  failed: string | null;
+  failed: boolean;
+  failureReason: string | null;
+  refunded: boolean;
   aiLabel: boolean;
   format: string | null;
+  category: string | null;
   parentJobId: string | null;
 }
 
+const MEDIA_MAX = 560;
+
 export function ResultView({ id }: { id: string }) {
   const router = useRouter();
+  const toast = useToast();
   const [job, setJob] = useState<JobView | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [checks, setChecks] = useState<Record<string, boolean>>({});
   const [showLabel, setShowLabel] = useState(true);
-  const [motion, setMotion] = useState(MOTION_PRESETS[0].id);
+  const [motion, setMotion] = useState<string | undefined>(undefined);
 
   const isVideo = job?.type?.startsWith("video/");
+  const tick = useRef(0);
 
   const load = useCallback(async () => {
     const res = await fetch(`/api/jobs/${id}`);
@@ -50,12 +61,21 @@ export function ResultView({ id }: { id: string }) {
     load();
   }, [load]);
 
-  // Poll while processing.
+  // B2: while a job is in flight, poll. For async (video) jobs, the poll also drives the
+  // reconciler so a failed/stale job resolves ON ITS OWN (no hidden button needed).
   useEffect(() => {
     if (!job || (job.status !== "queued" && job.status !== "running")) return;
-    const t = setInterval(load, 3000);
+    const async = job.type.startsWith("video/");
+    const t = setInterval(async () => {
+      tick.current += 1;
+      if (async && tick.current % 2 === 0) {
+        // reconcile every other tick (~10s): finalizes completed/failed jobs server-side.
+        await fetch(`/api/jobs/${id}/retry`, { method: "POST" }).catch(() => {});
+      }
+      await load();
+    }, 5000);
     return () => clearInterval(t);
-  }, [job, load]);
+  }, [job, load, id]);
 
   async function regenerate() {
     setBusy(true);
@@ -63,25 +83,20 @@ export function ResultView({ id }: { id: string }) {
     const res = await fetch(`/api/jobs/${id}/regenerate`, { method: "POST" });
     const j = await res.json();
     setBusy(false);
-    if (res.status === 402) return setError("Not enough credits to regenerate.");
-    if (!res.ok) return setError("Regeneration failed.");
+    if (res.status === 402) return toast("Not enough credits to regenerate.", "error");
+    if (!res.ok) return toast("Regeneration failed.", "error");
     router.push(`/app/shots/${j.jobId}`);
   }
 
   async function recover() {
     setBusy(true);
-    setError(null);
     try {
       const res = await fetch(`/api/jobs/${id}/retry`, { method: "POST" });
       const j = await res.json();
-      if (!res.ok) {
-        setError("Could not check status. Try again in a moment.");
-      } else if (j.status === "pending") {
-        setError(j.message ?? "Still rendering.");
-      }
+      if (res.ok && j.status === "pending") toast(j.message ?? "Still rendering.", "info");
       await load();
     } catch {
-      setError("Could not check status.");
+      toast("Could not check status.", "error");
     } finally {
       setBusy(false);
     }
@@ -89,82 +104,91 @@ export function ResultView({ id }: { id: string }) {
 
   async function approve() {
     setBusy(true);
-    await fetch(`/api/jobs/${id}/qc`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ action: "approve" }),
-    });
+    await fetch(`/api/jobs/${id}/qc`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ action: "approve" }) });
     await load();
     setBusy(false);
+    toast("Approved. Ready to download.", "success");
   }
 
   async function makeVideo() {
     setBusy(true);
-    setError(null);
-    const res = await fetch(`/api/jobs/${id}/video`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ motionPreset: motion }),
-    });
+    const res = await fetch(`/api/jobs/${id}/video`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ motionPreset: motion }) });
     const j = await res.json();
     setBusy(false);
-    if (res.status === 402) return setError("Not enough credits for video.");
-    if (!res.ok) return setError("Could not start video.");
+    if (res.status === 402) return toast("Not enough credits for video.", "error");
+    if (!res.ok) return toast("Could not start video.", "error");
     router.push(`/app/shots/${j.jobId}`);
   }
 
-  if (error) return <p style={{ color: "var(--danger)" }}>{error}</p>;
-  if (!job) return <p className="muted">Loading...</p>;
+  // MN8: trigger a real file download (not open-in-tab) via blob.
+  async function download() {
+    if (!job?.resultUrl) return;
+    setDownloading(true);
+    try {
+      const res = await fetch(job.resultUrl);
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `drape-${job.id}.${isVideo ? "mp4" : "png"}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast("Download failed. Try again.", "error");
+    } finally {
+      setDownloading(false);
+    }
+  }
 
-  // Processing: staged studio loading experience (Phase E) + user-facing recovery (always
-  // recoverable, even if the worker/webhook never lands).
+  if (error) return <div className="card" style={{ borderColor: "var(--danger)" }}>{error}</div>;
+  if (!job) {
+    return <div className="skeleton" style={{ height: 360, borderRadius: 14 }} aria-busy="true" />;
+  }
+
+  // Processing (B2): studio loader only renders while genuinely in flight. Auto-reconcile drives
+  // it to a real outcome; the manual check is a secondary affordance.
   if (job.status === "queued" || job.status === "running") {
     return (
       <div style={{ display: "grid", gap: 14 }}>
         <LoadingStudio isVideo={isVideo} />
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-          <button className="btn btn-ghost" disabled={busy} onClick={recover}>
-            {busy ? "Checking..." : "Taking too long? Check status"}
-          </button>
-          {error && <span className="muted" style={{ fontSize: 13 }}>{error}</span>}
-        </div>
+        <button className="btn btn-ghost" disabled={busy} onClick={recover} style={{ width: "fit-content" }}>
+          {busy ? "Checking..." : "Check status now"}
+        </button>
       </div>
     );
   }
 
-  // RED block (no silent dead-ends): honest message, credits refunded.
+  // RED block: honest message, single refund line.
   if (job.blocked) {
     return (
-      <div style={{ display: "grid", gap: 16 }}>
+      <div className="fade-up" style={{ display: "grid", gap: 16 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <TierBadge tier="red" />
           <h2 style={{ fontSize: 24 }}>We did not generate this one</h2>
         </div>
         <div className="card" style={{ borderColor: "var(--danger)" }}>
           <p style={{ margin: 0 }}>{job.blocked}</p>
-          <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>
-            No credits were charged. We reserved and immediately refunded them.
-          </p>
+          <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>No credits were charged.</p>
         </div>
-        <div>
-          <button className="btn btn-solid" onClick={() => router.push("/app/new")}>
-            Try a different shot
-          </button>
-        </div>
+        <button className="btn btn-solid" style={{ width: "fit-content" }} onClick={() => router.push("/app/new")}>Try a different shot</button>
       </div>
     );
   }
 
-  // Failure (refunded)
+  // Failure: single clear reason + single refund confirmation (MN9 / B2).
   if (job.status === "failed") {
     return (
-      <div style={{ display: "grid", gap: 16 }}>
-        <h2 style={{ fontSize: 24 }}>Generation failed</h2>
+      <div className="fade-up" style={{ display: "grid", gap: 16 }}>
+        <h2 style={{ fontSize: 24 }}>{isVideo ? "Video failed" : "Generation failed"}</h2>
         <div className="card" style={{ borderColor: "var(--caution)" }}>
-          <p style={{ margin: 0 }}>{job.failed ?? "Something went wrong."}</p>
-          <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>Your credits were refunded.</p>
+          <p style={{ margin: 0 }}>{job.failureReason ?? "Something went wrong."}</p>
+          {job.refunded && (
+            <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>Your credits were refunded.</p>
+          )}
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button className="btn btn-primary" disabled={busy} onClick={regenerate}>Try again</button>
           <button className="btn btn-ghost" onClick={() => router.push("/app/new")}>New shot</button>
         </div>
@@ -175,7 +199,7 @@ export function ResultView({ id }: { id: string }) {
   // Done
   const tier = job.tier ?? "green";
   const present = TIER_PRESENTATION[tier];
-  const downloadName = `drape-${job.id}.${isVideo ? "mp4" : "png"}`;
+  const motions = job.category ? motionsForCategory(job.category as Category) : MOTION_PRESETS;
 
   return (
     <div className="fade-up" style={{ display: "grid", gap: 20 }}>
@@ -185,36 +209,37 @@ export function ResultView({ id }: { id: string }) {
       </div>
       <p className="muted" style={{ marginTop: -8 }}>{present.body}</p>
 
-      <div style={{ position: "relative", width: "fit-content" }}>
+      {/* B1: media renders large with real dimensions (no fit-content collapse). */}
+      <div style={{ position: "relative", width: "100%", maxWidth: MEDIA_MAX }}>
         {isVideo ? (
           job.resultUrl && (
-            <video src={job.resultUrl} controls style={{ maxWidth: 520, width: "100%", borderRadius: 14, border: "1px solid var(--line)" }} />
+            <video src={job.resultUrl} controls playsInline style={{ width: "100%", display: "block", borderRadius: 14, border: "1px solid var(--line)" }} />
           )
         ) : job.beforeUrl && job.resultUrl ? (
           <BeforeAfter before={job.beforeUrl} after={job.resultUrl} alt="your product" />
         ) : (
           job.resultUrl && (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={job.resultUrl} alt="generated shot" style={{ maxWidth: 520, width: "100%", borderRadius: 14, border: "1px solid var(--line)" }} />
+            <img src={job.resultUrl} alt="generated shot" style={{ width: "100%", display: "block", borderRadius: 14, border: "1px solid var(--line)" }} />
           )
         )}
-        {showLabel && (
-          <span className="chip" style={{ position: "absolute", bottom: 12, left: 12, background: "rgba(22,22,22,0.7)", color: "#fff", borderColor: "transparent" }}>
+        {showLabel && job.resultUrl && (
+          <span className="chip" style={{ position: "absolute", bottom: 12, left: 12, background: "rgba(0,0,0,0.62)", color: "#fff", borderColor: "transparent" }}>
             Created with AI
           </span>
         )}
       </div>
 
-      {/* Provenance toggle (Section 10) */}
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
         <input type="checkbox" checked={showLabel} onChange={(e) => setShowLabel(e.target.checked)} />
         Show the &quot;Created with AI&quot; label on this image
       </label>
 
-      {/* AMBER QC */}
+      {/* AMBER QC (only amber surfaces the checklist; green is simply Ready). */}
       {tier === "amber" && job.qcStatus !== "approved" && (
         <div className="card" style={{ borderColor: "var(--caution)" }}>
           <strong>Quick review</strong>
+          <p className="muted" style={{ fontSize: 13, margin: "4px 0 0" }}>Check these before you publish.</p>
           <div style={{ display: "grid", gap: 8, margin: "12px 0" }}>
             {QC_CHECKLIST.map((c) => (
               <label key={c.id} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 14 }}>
@@ -224,24 +249,18 @@ export function ResultView({ id }: { id: string }) {
             ))}
           </div>
           <div style={{ display: "flex", gap: 10 }}>
-            <button className="btn btn-primary" disabled={busy || QC_CHECKLIST.some((c) => !checks[c.id])} onClick={approve}>
-              Approve
-            </button>
+            <button className="btn btn-primary" disabled={busy || QC_CHECKLIST.some((c) => !checks[c.id])} onClick={approve}>Approve</button>
             <button className="btn btn-ghost" disabled={busy} onClick={regenerate}>Regenerate</button>
           </div>
         </div>
       )}
-      {tier === "amber" && job.qcStatus === "approved" && (
-        <span className="chip chip-green" style={{ width: "fit-content" }}>Approved</span>
-      )}
+      {tier === "amber" && job.qcStatus === "approved" && <span className="chip chip-green" style={{ width: "fit-content" }}>Approved</span>}
 
       {/* Actions */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        {job.resultUrl && (
-          <a className="btn btn-solid" href={job.resultUrl} download={downloadName} target="_blank" rel="noreferrer">
-            Download
-          </a>
-        )}
+        <button className="btn btn-solid" disabled={downloading || !job.resultUrl} onClick={download}>
+          {downloading ? "Preparing..." : "Download"}
+        </button>
         <button className="btn btn-ghost" disabled={busy} onClick={regenerate}>Regenerate</button>
         <button className="btn btn-ghost" onClick={() => router.push("/app/shots")}>My shots</button>
       </div>
@@ -249,16 +268,14 @@ export function ResultView({ id }: { id: string }) {
       {/* Generate video from this still */}
       {!isVideo && (
         <div className="card" style={{ display: "grid", gap: 12 }}>
-          <strong>Bring it to life</strong>
-          <p className="muted" style={{ fontSize: 14, margin: 0 }}>
-            Animate this shot into a short clip. The product stays locked as the first frame.
-          </p>
+          <strong style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            Bring it to life <span className="chip" style={{ fontSize: 11 }}>Beta</span>
+          </strong>
+          <p className="muted" style={{ fontSize: 14, margin: 0 }}>Animate this shot into a short clip. The product stays locked as the first frame.</p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
-            <select className="select" style={{ maxWidth: 240 }} value={motion} onChange={(e) => setMotion(e.target.value)}>
-              {MOTION_PRESETS.map((m) => (
-                <option key={m.id} value={m.id}>{m.label}</option>
-              ))}
-            </select>
+            <div style={{ minWidth: 240 }}>
+              <CustomSelect value={motion} options={motions.map((m) => ({ value: m.id, label: m.label }))} onChange={(v) => setMotion(v)} placeholder="Choose a motion" />
+            </div>
             <button className="btn btn-primary" disabled={busy} onClick={makeVideo}>Generate video</button>
           </div>
         </div>

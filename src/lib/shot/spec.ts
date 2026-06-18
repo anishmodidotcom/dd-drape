@@ -155,6 +155,26 @@ export interface ShotSpec {
   aiLabel?: boolean;
 }
 
+// M4: which poses make sense for which product category. A shirt must never offer an earring pose.
+export const POSE_CATEGORIES: Record<Pose, Category[]> = {
+  "s-curve": ["apparel", "accessory"],
+  walking: ["apparel", "accessory"],
+  twirl: ["apparel"],
+  "hand-to-collarbone": ["apparel", "accessory", "jewellery"],
+  "hand-to-face": ["apparel", "accessory", "jewellery"],
+  "seated-regal": ["apparel", "accessory", "jewellery"],
+  "neck-decollete-crop": ["jewellery"],
+  "ear-profile-crop": ["jewellery"],
+  "hand-ring-crop": ["jewellery", "accessory"],
+  "candid-laughing": ["apparel", "accessory", "jewellery"],
+  "over-shoulder-back": ["apparel", "accessory"],
+  "adjusting-earring": ["jewellery"],
+};
+
+export function posesForCategory(category: Category): Pose[] {
+  return POSES.filter((p) => POSE_CATEGORIES[p].includes(category));
+}
+
 // The framing the user picks maps to a tiering shotType when the wizard does not set one directly.
 export function framingToShotType(framing: Framing | undefined, fallback: ShotType): ShotType {
   switch (framing) {

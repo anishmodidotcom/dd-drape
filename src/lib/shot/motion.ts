@@ -11,8 +11,8 @@ export interface MotionPreset {
   motion: string;
   /** Camera path. */
   camera: string;
-  /** Sub-types this motion suits best (informational). */
-  bestFor: string[];
+  /** Product categories this motion suits (M4: filter by category). */
+  categories: Category[];
 }
 
 export const MOTION_PRESETS: MotionPreset[] = [
@@ -21,21 +21,21 @@ export const MOTION_PRESETS: MotionPreset[] = [
     label: "Model turn",
     motion: "The model turns slowly from three-quarter to face the camera, a soft natural smile.",
     camera: "The camera holds steady, a gentle push-in.",
-    bestFor: ["apparel"],
+    categories: ["apparel", "accessory"],
   },
   {
     id: "walk",
     label: "Walk toward camera",
     motion: "The model walks forward in a relaxed stride, fabric moving naturally with each step.",
     camera: "The camera tracks back at walking pace, eye level.",
-    bestFor: ["apparel"],
+    categories: ["apparel", "accessory"],
   },
   {
     id: "lehenga-twirl",
-    label: "Lehenga twirl",
-    motion: "The model twirls once so the lehenga flares fully, then settles.",
+    label: "Garment twirl",
+    motion: "The model twirls once so the garment flares fully, then settles.",
     camera: "The camera orbits slightly to follow the twirl.",
-    bestFor: ["lehenga", "anarkali", "dress"],
+    categories: ["apparel"],
   },
   {
     id: "earring-adjust",
@@ -43,7 +43,7 @@ export const MOTION_PRESETS: MotionPreset[] = [
     motion:
       "The model raises one hand and gently adjusts an earring, head tilted to expose the ear. The earring stays rigid, undistorted, and does not bend.",
     camera: "The camera holds a close, steady frame on the ear and jaw.",
-    bestFor: ["earrings", "maang-tikka"],
+    categories: ["jewellery"],
   },
   {
     id: "ring-turn",
@@ -51,19 +51,23 @@ export const MOTION_PRESETS: MotionPreset[] = [
     motion:
       "The hand rotates slowly to catch the light on the ring. The ring and stone stay rigid, undistorted, and do not bend.",
     camera: "The camera holds a macro frame, a slow subtle push-in.",
-    bestFor: ["ring", "bangle"],
+    categories: ["jewellery"],
   },
   {
     id: "subtle-sway",
     label: "Subtle sway",
     motion: "The model sways almost imperceptibly with relaxed breathing, fabric barely shifting.",
     camera: "The camera is locked off, no movement.",
-    bestFor: ["apparel", "accessory"],
+    categories: ["apparel", "accessory", "jewellery"],
   },
 ];
 
 export function getMotionPreset(id: string | undefined): MotionPreset {
   return MOTION_PRESETS.find((m) => m.id === id) ?? MOTION_PRESETS[0];
+}
+
+export function motionsForCategory(category: Category): MotionPreset[] {
+  return MOTION_PRESETS.filter((m) => m.categories.includes(category));
 }
 
 // Builds the full i2v motion prompt. Rigid items (jewellery, watches, eyewear, bags) get an

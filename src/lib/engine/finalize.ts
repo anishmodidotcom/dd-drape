@@ -33,13 +33,23 @@ export async function finalizeSuccess(job: JobRow, outputUrl: string): Promise<v
 
   // Fixed per-unit cost: actual equals the estimate. Idempotent settle.
   const actual = job.estimated_credits;
-  await settleCredits(job.user_id, job.estimated_credits, actual, job.id);
+  await settleCredits(job.user_id, job.estimated_credits, actual, job.id, labelFor(job));
   await markJobDone(job.id, path, actual, job.fal_request_id ?? undefined);
 }
 
 export async function finalizeFailure(job: JobRow, reason: string): Promise<void> {
   if (job.status === "done" || job.status === "failed") return;
   // Idempotent refund (no-op if already refunded).
-  await refundCredits(job.user_id, job.estimated_credits, job.id);
+  await refundCredits(job.user_id, job.estimated_credits, job.id, `${labelFor(job)}, refunded`);
   await markJobFailed(job.id, reason.slice(0, 2000));
+}
+
+// Human-readable ledger label for a job (no internal codes).
+function labelFor(job: JobRow): string {
+  if (job.type.startsWith("video/")) return "Video";
+  if (job.type === "model/create") return "Model generation";
+  const meta = (job.payload?.meta ?? {}) as Record<string, unknown>;
+  const sub = typeof meta.subType === "string" && meta.subType ? meta.subType : "";
+  const title = sub ? sub.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "";
+  return title ? `${title} shot` : "Shot";
 }

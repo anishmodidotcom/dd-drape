@@ -41,7 +41,7 @@ export async function generateModel(
 
   // RESERVE (gates on balance).
   try {
-    await reserveCredits(userId, MODEL_CREATE_CREDITS, job.id, "reserve model/create");
+    await reserveCredits(userId, MODEL_CREATE_CREDITS, job.id, "Model generation");
   } catch {
     await markJobFailed(job.id, "insufficient credits for model creation");
     return { status: "insufficient", message: "Not enough credits to create a model." };
@@ -78,7 +78,7 @@ export async function generateModel(
     }
 
     // SETTLE + persist the model.
-    await settleCredits(userId, MODEL_CREATE_CREDITS, MODEL_CREATE_CREDITS, job.id);
+    await settleCredits(userId, MODEL_CREATE_CREDITS, MODEL_CREATE_CREDITS, job.id, "Model generation");
     await admin.from("drape_models").insert({
       id: modelId,
       user_id: userId,
@@ -91,7 +91,7 @@ export async function generateModel(
 
     return { status: "ready", modelId, imagePaths: paths };
   } catch (err) {
-    await refundCredits(userId, MODEL_CREATE_CREDITS, job.id);
+    await refundCredits(userId, MODEL_CREATE_CREDITS, job.id, "Model generation, refunded");
     await markJobFailed(job.id, `model creation failed: ${String(err)}`);
     return { status: "failed", message: "Model creation failed. Your credits were refunded." };
   }

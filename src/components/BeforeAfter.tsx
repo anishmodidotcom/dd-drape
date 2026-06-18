@@ -22,7 +22,6 @@ export function BeforeAfter({ before, after, alt }: { before: string; after: str
         position: "relative",
         width: "100%",
         aspectRatio: "3 / 4",
-        maxWidth: 520,
         borderRadius: 14,
         overflow: "hidden",
         border: "1px solid var(--line)",

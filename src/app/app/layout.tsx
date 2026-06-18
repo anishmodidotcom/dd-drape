@@ -18,7 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           Drape
         </Link>
         <AppNav />
-        <div style={{ marginTop: "auto", fontSize: 12, opacity: 0.6 }}>
+        <div className="rail-tagline" style={{ marginTop: "auto", fontSize: 12, opacity: 0.6 }}>
           Your product. Your model. Your shot.
         </div>
       </aside>

@@ -48,7 +48,8 @@ export default async function MyShotsPage() {
                 <span style={{ fontSize: 12 }} className="muted">
                   {j.type.startsWith("video/") ? "Video" : "Image"}
                 </span>
-                {j.tier && <TierBadge tier={j.tier as Tier} />}
+                {/* MN1: only flag review-needed (amber/red), not every card. */}
+                {j.tier && j.tier !== "green" && j.status === "done" && <TierBadge tier={j.tier as Tier} />}
               </div>
             </Link>
           ))}

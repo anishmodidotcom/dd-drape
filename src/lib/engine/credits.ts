@@ -50,7 +50,8 @@ export async function settleCredits(
   userId: string,
   estimated: number,
   actual: number,
-  jobId: string
+  jobId: string,
+  note?: string
 ) {
   const admin = getAdminClient();
   const delta = actual - estimated;
@@ -60,14 +61,14 @@ export async function settleCredits(
     p_job_id: jobId,
     p_kind: "settle",
     p_gate: false,
-    p_note: `settle est=${estimated} act=${actual}`,
+    p_note: note ?? "settle",
   });
   if (error) throw new Error(`settle failed: ${error.message}`);
   return data as number;
 }
 
 /** REFUND on failure: credit the full reserved amount back (nothing was spent). */
-export async function refundCredits(userId: string, reserved: number, jobId: string) {
+export async function refundCredits(userId: string, reserved: number, jobId: string, note?: string) {
   const admin = getAdminClient();
   const { data, error } = await admin.rpc("drape_debit_credits", {
     p_user_id: userId,
@@ -75,7 +76,7 @@ export async function refundCredits(userId: string, reserved: number, jobId: str
     p_job_id: jobId,
     p_kind: "refund",
     p_gate: false,
-    p_note: "refund on failure",
+    p_note: note ?? "refunded",
   });
   if (error) throw new Error(`refund failed: ${error.message}`);
   return data as number;
