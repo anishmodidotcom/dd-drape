@@ -1,12 +1,17 @@
-// Drape multi-model router registry.
+// Drape multi-model router registry (v2).
 //
-// Callers NEVER hardcode a fal model slug. They ask for a job NEED. This registry maps
-// each need to the cheapest capable VERIFIED fal model and its per-unit provider cost.
+// v2 FIDELITY FIX: every capability that conditions on the user's product routes to a
+// reference-capable (edit / try-on) slug, NEVER a text-to-image slug. Each entry declares which
+// fal input field(s) carry the reference image, so the router attaches it to the correct field.
+// A guard (assertReferenceCapable) throws if a product job ever resolves to a text-to-image slug.
 //
-// Pricing drifts. VERIFY live before first spend via:
-//   GET https://fal.run/v1/models/pricing?endpoint_id=SLUG  (or the documented pricing endpoint)
-// The unitCostCents values below are seeded from the mid-2026 verified stack and are the
-// estimator's defaults; the estimator can be overridden with a live-fetched cost.
+// Slugs + field names below are VERIFIED against the live fal input schemas:
+//   fal-ai/bytedance/seedream/v4.5/edit   required [prompt, image_urls]
+//   fal-ai/nano-banana-pro/edit           required [prompt, image_urls] (up to 14 refs, 1K/2K/4K)
+//   openai/gpt-image-2/edit               required [prompt, image_urls]; optional mask_url
+//   fal-ai/fashn/tryon/v1.6               required [model_image, garment_image]
+//   fal-ai/bria/background/remove         required [image_url]
+//   fal-ai/kling-video/v3/pro/image-to-video  required [start_image_url]
 
 export type Need =
   | "image/standard"
@@ -18,98 +23,130 @@ export type Need =
   | "video/hero"
   | "upscale/video";
 
-// What the per-unit cost is measured in.
 export type CostUnit = "image" | "second" | "megapixel" | "token";
 
+// How a model takes the product reference image.
+//   image_urls   -> edit models (array of reference URLs)
+//   image_url    -> single-image models (bg remove)
+//   start_image  -> i2v video (start_image_url)
+//   tryon        -> FASHN: garment_image + model_image
+//   none         -> no image input (only valid for text-to-image, which products must never use)
+export type RefShape = "image_urls" | "image_url" | "start_image" | "tryon" | "none";
+
 export interface ModelEntry {
-  /** Verified fal endpoint slug, used verbatim at the fal call site. */
   slug: string;
-  /** Unit the provider bills in. */
   unit: CostUnit;
-  /** Provider cost per unit, in US cents. 1 credit = 1 cent = $0.01. */
   unitCostCents: number;
-  /** True for long-running jobs that must go through the worker + webhook, not subscribe(). */
   async: boolean;
-  /** Human note on why this model is the default for the need. */
+  /** How the product reference attaches to this model's input. */
+  refShape: RefShape;
+  /** True only for text-to-image slugs. A product job must never resolve to one. */
+  textToImage: boolean;
   note: string;
 }
 
-// Cheapest capable verified model per need. Swap a slug here, every call site follows.
 export const REGISTRY: Record<Need, ModelEntry> = {
-  // STANDARD photoreal batches + pipeline testing. Cheapest image model: test here first.
+  // Cheap drafts, reference-locked. Seedream EDIT (not text-to-image).
   "image/standard": {
-    slug: "fal-ai/bytedance/seedream/v4.5/text-to-image",
+    slug: "fal-ai/bytedance/seedream/v4.5/edit",
     unit: "image",
-    unitCostCents: 4, // $0.04 / image
+    unitCostCents: 4,
     async: false,
-    note: "Seedream 4.5 - cheap photoreal, used for STANDARD + end-to-end pipeline testing.",
+    refShape: "image_urls",
+    textToImage: false,
+    note: "Seedream 4.5 EDIT - cheap reference-locked drafts + pipeline testing.",
   },
-  // HERO + multi-reference fidelity (up to 14 reference images, 4K, text-in-image).
+  // Premium, reference-locked, up to 14 refs, 1K/2K/4K. Nano Banana Pro EDIT.
   "image/hero": {
-    slug: "fal-ai/nano-banana-pro",
+    slug: "fal-ai/nano-banana-pro/edit",
     unit: "image",
-    unitCostCents: 15, // $0.15 / image
+    unitCostCents: 15,
     async: false,
-    note: "Nano Banana Pro - hero fidelity, multi-subject consistency, reference-locked.",
+    refShape: "image_urls",
+    textToImage: false,
+    note: "Nano Banana Pro EDIT - hero reference-locked fidelity, multi-reference identity lock.",
   },
-  // Virtual try-on: garment on model. Core capability.
-  tryon: {
-    slug: "fal-ai/fashn",
-    unit: "image",
-    unitCostCents: 8, // $0.075 / gen, rounded up to whole cents at estimate time
-    async: false,
-    note: "FASHN v1.5 - garment-on-model virtual try-on. Verify slug before first spend.",
-  },
-  // Instruction / reference edits (background swaps via reference, no masks).
+  // Region edits / masking. GPT Image 2 edit (supports mask_url).
   "image/edit": {
-    slug: "fal-ai/nano-banana-pro",
+    slug: "openai/gpt-image-2/edit",
     unit: "image",
-    unitCostCents: 15, // $0.15 / edit
+    unitCostCents: 15,
     async: false,
-    note: "Nano Banana Pro edit - up to 14 refs, no masks, high fidelity edits.",
+    refShape: "image_urls",
+    textToImage: false,
+    note: "GPT Image 2 edit - precise region edits / inpaint with optional mask_url.",
   },
-  // Background removal.
+  // Garment worn on a model. FASHN try-on.
+  tryon: {
+    slug: "fal-ai/fashn/tryon/v1.6",
+    unit: "image",
+    unitCostCents: 8,
+    async: false,
+    refShape: "tryon",
+    textToImage: false,
+    note: "FASHN v1.6 try-on - garment_image worn on model_image.",
+  },
+  // Background removal / garment clean.
   "bg-remove": {
-    slug: "fal-ai/bria/rmbg/2.0",
+    slug: "fal-ai/bria/background/remove",
     unit: "image",
-    unitCostCents: 2, // $0.018 / gen, rounded up
+    unitCostCents: 2,
     async: false,
-    note: "Bria RMBG 2.0 - background removal / garment clean.",
+    refShape: "image_url",
+    textToImage: false,
+    note: "Bria background remove.",
   },
-  // STANDARD video. Always i2v (anchored to a generated still as first frame).
+  // STANDARD video, i2v anchored to the approved still (start_image_url).
   "video/standard": {
-    slug: "fal-ai/bytedance/seedance-2.0/image-to-video",
+    slug: "fal-ai/kling-video/v3/pro/image-to-video",
     unit: "second",
-    unitCostCents: 30.24, // $0.3024 / sec
+    unitCostCents: 11.2,
     async: true,
-    note: "Seedance 2.0 i2v - default video, native audio, start+end frame.",
+    refShape: "start_image",
+    textToImage: false,
+    note: "Kling v3 pro i2v - anchored to the approved still as the first frame.",
   },
-  // HERO video. Premium 4K with audio.
+  // HERO video, premium i2v. Slug verified-live before first spend (Phase D).
   "video/hero": {
     slug: "fal-ai/veo3.1",
     unit: "second",
-    unitCostCents: 40, // $0.40 / sec w/ audio
+    unitCostCents: 40,
     async: true,
-    note: "Veo 3.1 - premium 4K hero shots with audio.",
+    refShape: "start_image",
+    textToImage: false,
+    note: "Veo 3.1 i2v - premium hero motion. Verify input field live before first spend.",
   },
   // Video upscale.
   "upscale/video": {
     slug: "fal-ai/topaz/upscale/video",
     unit: "second",
-    unitCostCents: 8, // $0.01-0.08 / sec by tier; default to top tier for safe estimate
+    unitCostCents: 8,
     async: true,
-    note: "Topaz video upscale - cost varies by tier, estimate at top tier.",
+    refShape: "image_url",
+    textToImage: false,
+    note: "Topaz video upscale.",
   },
 };
 
 export function lookup(need: Need): ModelEntry {
   const entry = REGISTRY[need];
-  if (!entry) {
-    throw new Error(`No model registered for need "${need}"`);
-  }
+  if (!entry) throw new Error(`No model registered for need "${need}"`);
   return entry;
 }
 
 export function isAsyncNeed(need: Need): boolean {
   return lookup(need).async;
+}
+
+// v2 GUARD: a job that carries a product reference must never resolve to a text-to-image slug.
+// Call this in the router before submitting. Throws loudly so the red-lehenga failure is impossible.
+export function assertReferenceCapable(need: Need): ModelEntry {
+  const entry = lookup(need);
+  if (entry.textToImage || entry.refShape === "none") {
+    throw new Error(
+      `FIDELITY GUARD: need "${need}" resolved to text-to-image slug "${entry.slug}". ` +
+        `A product generation must route to a reference-capable edit/try-on slug.`
+    );
+  }
+  return entry;
 }

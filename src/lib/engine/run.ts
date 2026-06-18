@@ -4,8 +4,10 @@ import { lookup, isAsyncNeed, type Need } from "./registry";
 import { createJob, markJobDone, markJobFailed, type Tier, type QcStatus } from "./jobs";
 import { reserveCredits, settleCredits, refundCredits } from "./credits";
 import { runSync } from "./fal";
-import { storeOutputFromUrl, storeManifest } from "./storage";
+import { storeOutputFromUrl, storeManifest, signedUrl } from "./storage";
 import { buildProvenanceManifest } from "@/lib/shot/provenance";
+import { directorEnabled } from "@/lib/director/client";
+import { checkFidelity } from "@/lib/director/gate";
 
 // Orchestration for the async job flow (Section 3.3).
 //
@@ -31,7 +33,11 @@ export interface RunInput {
   blocked?: string;
   /** Extra metadata stored on the job payload (shot spec summary, reference paths, etc.). */
   meta?: Record<string, unknown>;
+  /** Post-generation fidelity gate: compares source product vs output, refunds on a non-match. */
+  fidelityGate?: { sourceUrl: string };
 }
+
+export const FIDELITY_FAIL_PREFIX = "FIDELITY_FAIL: ";
 
 // Best-effort extraction of the first output URL from a fal result payload.
 export function firstOutputUrl(data: unknown): string | null {
@@ -121,6 +127,32 @@ export async function runJob(input: RunInput): Promise<RunResult> {
 
     const ext = input.need.startsWith("video/") ? "mp4" : "png";
     const path = await storeOutputFromUrl(input.userId, job.id, url, ext);
+
+    // FIDELITY GATE (v2 trust backbone): compare the source product against the output. On a
+    // non-match, refund and fail with a clear message rather than shipping a drifted product.
+    if (input.fidelityGate && directorEnabled() && !input.need.startsWith("video/")) {
+      try {
+        const outUrl = await signedUrl(path, 600);
+        const verdict = await checkFidelity(input.fidelityGate.sourceUrl, outUrl);
+        if (!verdict.match) {
+          await refundCredits(input.userId, est.credits, job.id);
+          await markJobFailed(
+            job.id,
+            `${FIDELITY_FAIL_PREFIX}${verdict.reasons.join("; ") || "product drifted from the source"}`
+          );
+          return {
+            jobId: job.id,
+            status: "failed",
+            tier: input.tier,
+            estimatedCredits: est.credits,
+            message:
+              "We caught a fidelity drift between the result and your product, so we did not deliver it. Your credits were refunded.",
+          };
+        }
+      } catch {
+        // Gate failure should not strand a good generation; proceed without blocking.
+      }
+    }
 
     // Provenance (Section 10): write a C2PA-style manifest sidecar for every output.
     const meta = input.meta ?? {};

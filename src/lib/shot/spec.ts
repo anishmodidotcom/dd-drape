@@ -143,6 +143,12 @@ export interface ShotSpec {
   /** Optional reference vibe image/video path the user uploaded ("the look I want"). */
   vibeReferencePath?: string;
 
+  /** Saved-model identity reference image paths (Models studio). Enables the try-on route. */
+  modelImagePaths?: string[];
+
+  /** Free-text brief the user typed; Claude folds it across controls. */
+  freeBrief?: string;
+
   video?: VideoSpec;
 
   /** Provenance: embed the visible "Created with AI" label on the output. */
