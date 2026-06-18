@@ -88,6 +88,24 @@ async function processJob(job: ClaimedJob) {
   }
 }
 
+// Periodically ask the app to reconcile in-flight jobs whose webhook never arrived.
+async function reconcile() {
+  const secret = process.env.WORKER_SHARED_SECRET;
+  if (!secret) return;
+  try {
+    const res = await fetch(`${APP_URL}/api/jobs/reconcile`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${secret}` },
+    });
+    if (res.ok) {
+      const s = await res.json();
+      if (s.completed || s.failed) console.log("reconciled:", JSON.stringify(s));
+    }
+  } catch (err) {
+    console.error("reconcile call failed:", err);
+  }
+}
+
 async function loop() {
   console.log(`Drape worker started. Polling every ${POLL_MS}ms for ${VIDEO_NEEDS.join(", ")}`);
   // Graceful shutdown.
@@ -95,6 +113,7 @@ async function loop() {
   process.on("SIGTERM", () => (running = false));
   process.on("SIGINT", () => (running = false));
 
+  let cycles = 0;
   while (running) {
     try {
       const job = await claimNext();
@@ -102,6 +121,8 @@ async function loop() {
         await processJob(job);
         continue; // drain queue without waiting
       }
+      // Reconcile roughly once a minute (every ~12 idle cycles at 5s).
+      if (++cycles % 12 === 0) await reconcile();
     } catch (err) {
       console.error("worker loop error:", err);
     }

@@ -127,6 +127,10 @@ export interface Database {
         Args: { p_types: string[] };
         Returns: Database["public"]["Tables"]["drape_jobs"]["Row"];
       };
+      drape_list_stale_jobs: {
+        Args: { p_minutes: number };
+        Returns: Database["public"]["Tables"]["drape_jobs"]["Row"][];
+      };
     };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;

@@ -1,22 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/supabase/server";
 import { storeUpload, signedUrl } from "@/lib/engine/storage";
+import { validateImageUpload } from "@/lib/engine/image-validate";
 
 // POST /api/uploads  (multipart/form-data, field "file")
-// Stores a product photo or vibe reference under the user's uploads/ namespace.
+// Stores a product photo or vibe reference under the user's uploads/ namespace. Validates the
+// real MIME from magic bytes (not the client-declared type), enforces a minimum resolution, and
+// strips EXIF before storage.
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
-const EXT_BY_TYPE: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/webp": "webp",
-  "video/mp4": "mp4",
-  "video/quicktime": "mov",
-};
-
 const MAX_BYTES = 25 * 1024 * 1024; // 25 MB
+
+const CONTENT_TYPE: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  webp: "image/webp",
+};
 
 export async function POST(req: NextRequest) {
   const user = await getUser();
@@ -30,16 +31,17 @@ export async function POST(req: NextRequest) {
   if (file.size > MAX_BYTES) {
     return NextResponse.json({ error: "file too large (max 25MB)" }, { status: 413 });
   }
-  const ext = EXT_BY_TYPE[file.type];
-  if (!ext) {
-    return NextResponse.json({ error: `unsupported type ${file.type}` }, { status: 415 });
+
+  const raw = new Uint8Array(await file.arrayBuffer());
+  const v = validateImageUpload(raw);
+  if (!v.ok) {
+    return NextResponse.json({ error: v.reason }, { status: 415 });
   }
 
   try {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const path = await storeUpload(user.id, bytes, file.type, ext);
+    const path = await storeUpload(user.id, v.cleaned!, CONTENT_TYPE[v.ext!], v.ext!);
     const url = await signedUrl(path, 3600);
-    return NextResponse.json({ path, url });
+    return NextResponse.json({ path, url, width: v.width, height: v.height });
   } catch (err) {
     console.error("upload failed", err);
     return NextResponse.json({ error: "upload_failed" }, { status: 500 });
