@@ -14,6 +14,7 @@ import { CATEGORY_LABELS, SUBTYPES } from "@/lib/shot/subtypes";
 import { presetsForCategory } from "@/lib/shot/presets";
 import { FORMATS } from "@/lib/shot/formats";
 import { MOTION_PRESETS } from "@/lib/shot/motion";
+import { thumbUrl } from "@/lib/shot/thumbnails";
 import {
   ETHNICITIES,
   BODIES,
@@ -348,14 +349,23 @@ export function NewShotWizard({ savedModels = [] }: { savedModels?: SavedModelOp
 
           {mode === "presets" ? (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
-              {presetsForCategory(category).map((p) => (
-                <button key={p.id} className="tile" data-selected={presetId === p.id} onClick={() => setPresetId(p.id)}>
-                  <div style={{ fontWeight: 600, fontFamily: "var(--font-display)", fontSize: 18, marginBottom: 4 }}>
-                    {p.label}
-                  </div>
-                  <div className="muted" style={{ fontSize: 13 }}>{p.description}</div>
-                </button>
-              ))}
+              {presetsForCategory(category).map((p) => {
+                const thumb = thumbUrl("presets", p.id);
+                return (
+                  <button key={p.id} className="tile" data-selected={presetId === p.id} onClick={() => setPresetId(p.id)} style={{ padding: thumb ? 0 : 16, overflow: "hidden" }}>
+                    {thumb && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={thumb} alt={p.label} loading="lazy" style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover", display: "block" }} />
+                    )}
+                    <div style={{ padding: thumb ? "12px 14px" : 0 }}>
+                      <div style={{ fontWeight: 600, fontFamily: "var(--font-display)", fontSize: 18, marginBottom: 4 }}>
+                        {p.label}
+                      </div>
+                      <div className="muted" style={{ fontSize: 13 }}>{p.description}</div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           ) : (
             <div style={{ display: "grid", gap: 18 }}>
@@ -599,7 +609,33 @@ function AdvancedControls({
       <Select label="Gender" value={adv.model?.gender} options={GENDERS} onChange={(v) => set({ model: { ...adv.model, gender: v } })} />
       <Select label="Makeup" value={adv.makeup} options={MAKEUP} onChange={(v) => set({ makeup: v })} />
       <Select label="Hair" value={adv.hair} options={HAIR} onChange={(v) => set({ hair: v })} />
-      <Select label="Pose" value={adv.pose} options={POSES} onChange={(v) => set({ pose: v })} />
+      <div style={{ gridColumn: "1 / -1" }}>
+        <label className="label">Pose</label>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {POSES.map((pose) => {
+            const thumb = thumbUrl("poses", pose);
+            const selected = adv.pose === pose;
+            return (
+              <button
+                key={pose}
+                type="button"
+                className="tile"
+                data-selected={selected}
+                onClick={() => set({ pose: selected ? undefined : pose })}
+                style={{ width: 92, padding: thumb ? 0 : 8, overflow: "hidden" }}
+                title={titleize(pose)}
+              >
+                {thumb ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={thumb} alt={titleize(pose)} loading="lazy" style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover", display: "block" }} />
+                ) : (
+                  <div style={{ fontSize: 12 }}>{titleize(pose)}</div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
       <Select label="Background" value={adv.background} options={BACKGROUNDS} onChange={(v) => set({ background: v })} />
       <Select label="Lighting" value={adv.lighting} options={LIGHTING} onChange={(v) => set({ lighting: v })} />
       <Select label="Framing" value={adv.framing} options={FRAMINGS} onChange={(v) => set({ framing: v })} />
