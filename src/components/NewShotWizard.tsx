@@ -1,12 +1,20 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Uploader, type UploadedItem } from "./Uploader";
+import { SmartImage } from "./SmartImage";
 import { TierBadge } from "./TierBadge";
+
+export interface SavedModelOption {
+  id: string;
+  name: string;
+  image_paths: string[];
+}
 import { CATEGORY_LABELS, SUBTYPES } from "@/lib/shot/subtypes";
 import { presetsForCategory } from "@/lib/shot/presets";
 import { FORMATS } from "@/lib/shot/formats";
 import { MOTION_PRESETS } from "@/lib/shot/motion";
+import { thumbUrl } from "@/lib/shot/thumbnails";
 import {
   ETHNICITIES,
   BODIES,
@@ -40,9 +48,11 @@ function titleize(s: string) {
   return s.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function NewShotWizard() {
+export function NewShotWizard({ savedModels = [] }: { savedModels?: SavedModelOption[] }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
+  const [modelId, setModelId] = useState<string | null>(null);
+  const [freeBrief, setFreeBrief] = useState("");
 
   // Step 1: uploads
   const [products, setProducts] = useState<UploadedItem[]>([]);
@@ -69,6 +79,44 @@ export function NewShotWizard() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  // Draft persistence: keep the whole flow in localStorage so a refresh never loses work.
+  const DRAFT_KEY = "drape-draft-v2";
+  const hydrated = useRef(false);
+  useEffect(() => {
+    if (hydrated.current) return;
+    hydrated.current = true;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (d.products) setProducts(d.products);
+      if (d.vibeRef) setVibeRef(d.vibeRef);
+      if (d.category) setCategory(d.category);
+      if (d.subType) setSubType(d.subType);
+      if (d.mode) setMode(d.mode);
+      if (d.presetId) setPresetId(d.presetId);
+      if (d.adv) setAdv(d.adv);
+      if (d.shotTypeOverride) setShotTypeOverride(d.shotTypeOverride);
+      if (typeof d.videoOn === "boolean") setVideoOn(d.videoOn);
+      if (d.motionPreset) setMotionPreset(d.motionPreset);
+      if (typeof d.seconds === "number") setSeconds(d.seconds);
+      if (d.modelId) setModelId(d.modelId);
+      if (d.freeBrief) setFreeBrief(d.freeBrief);
+      if (typeof d.step === "number") setStep(d.step);
+    } catch {
+      /* ignore corrupt draft */
+    }
+  }, []);
+  useEffect(() => {
+    if (!hydrated.current) return;
+    const d = { products, vibeRef, category, subType, mode, presetId, adv, shotTypeOverride, videoOn, motionPreset, seconds, modelId, freeBrief, step };
+    try {
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+    } catch {
+      /* quota / private mode */
+    }
+  }, [products, vibeRef, category, subType, mode, presetId, adv, shotTypeOverride, videoOn, motionPreset, seconds, modelId, freeBrief, step]);
+
   const spec = useMemo<ShotSpec | null>(() => {
     if (!category || !subType) return null;
     const presetSpec =
@@ -80,6 +128,7 @@ export function NewShotWizard() {
       mode === "presets"
         ? presetSpec.shotType ?? framingToShotType(framing, "on-model-full")
         : shotTypeOverride;
+    const selectedModel = savedModels.find((m) => m.id === modelId);
     return {
       ...presetSpec,
       category,
@@ -87,9 +136,11 @@ export function NewShotWizard() {
       shotType, // canonical for tiering; not overwritten by the preset spread
       referenceImagePaths: products.map((p) => p.path),
       vibeReferencePath: vibeRef?.path,
+      modelImagePaths: selectedModel?.image_paths,
+      freeBrief: freeBrief.trim() || undefined,
       video: videoOn ? { enabled: true, motionPreset, seconds } : undefined,
     } as ShotSpec;
-  }, [category, subType, mode, presetId, adv, shotTypeOverride, products, vibeRef, videoOn, motionPreset, seconds]);
+  }, [category, subType, mode, presetId, adv, shotTypeOverride, products, vibeRef, videoOn, motionPreset, seconds, modelId, savedModels, freeBrief]);
 
   // Fetch estimate when entering review.
   useEffect(() => {
@@ -135,6 +186,11 @@ export function NewShotWizard() {
         return;
       }
       if (!res.ok) throw new Error(json.error ?? "Generation failed");
+      try {
+        localStorage.removeItem("drape-draft-v2");
+      } catch {
+        /* ignore */
+      }
       router.push(`/app/shots/${json.jobId}`);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Generation failed");
@@ -145,6 +201,28 @@ export function NewShotWizard() {
   return (
     <div>
       <Stepper step={step} />
+
+      {products.length > 0 && step > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 10,
+            padding: "8px 12px",
+            border: "1px solid var(--line)",
+            borderRadius: 10,
+            marginBottom: 20,
+            background: "#fff",
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={products[0].url} alt="your product" style={{ width: 40, height: 50, objectFit: "cover", borderRadius: 6 }} />
+          <div style={{ fontSize: 13 }}>
+            <strong>This is your product.</strong>{" "}
+            <span className="muted">It stays the anchor for every shot. We never reinvent it.</span>
+          </div>
+        </div>
+      )}
 
       {step === 0 && (
         <section style={{ display: "grid", gap: 20 }}>
@@ -244,33 +322,112 @@ export function NewShotWizard() {
       {step === 2 && category && (
         <section style={{ display: "grid", gap: 18 }}>
           <h2 style={{ fontSize: 28 }}>Choose your shot</h2>
-          <div style={{ display: "flex", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <button className={`btn ${mode === "presets" ? "btn-solid" : "btn-ghost"}`} onClick={() => setMode("presets")}>
               Presets
             </button>
             <button className={`btn ${mode === "advanced" ? "btn-solid" : "btn-ghost"}`} onClick={() => setMode("advanced")}>
               Advanced
             </button>
+            <button
+              className="btn btn-primary"
+              style={{ marginLeft: "auto" }}
+              onClick={() => {
+                const pick =
+                  category === "jewellery"
+                    ? "demi-fine-everyday"
+                    : category === "accessory"
+                    ? "quiet-luxury"
+                    : "marketplace-clean";
+                setMode("presets");
+                setPresetId(presetsForCategory(category).find((p) => p.id === pick)?.id ?? presetsForCategory(category)[0]?.id ?? null);
+              }}
+            >
+              Art director&rsquo;s pick
+            </button>
           </div>
 
           {mode === "presets" ? (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 12 }}>
-              {presetsForCategory(category).map((p) => (
-                <button key={p.id} className="tile" data-selected={presetId === p.id} onClick={() => setPresetId(p.id)}>
-                  <div style={{ fontWeight: 600, fontFamily: "var(--font-display)", fontSize: 18, marginBottom: 4 }}>
-                    {p.label}
-                  </div>
-                  <div className="muted" style={{ fontSize: 13 }}>{p.description}</div>
-                </button>
-              ))}
+              {presetsForCategory(category).map((p) => {
+                const thumb = thumbUrl("presets", p.id);
+                return (
+                  <button key={p.id} className="tile" data-selected={presetId === p.id} onClick={() => setPresetId(p.id)} style={{ padding: thumb ? 0 : 16, overflow: "hidden" }}>
+                    {thumb && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={thumb} alt={p.label} loading="lazy" style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover", display: "block" }} />
+                    )}
+                    <div style={{ padding: thumb ? "12px 14px" : 0 }}>
+                      <div style={{ fontWeight: 600, fontFamily: "var(--font-display)", fontSize: 18, marginBottom: 4 }}>
+                        {p.label}
+                      </div>
+                      <div className="muted" style={{ fontSize: 13 }}>{p.description}</div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           ) : (
-            <AdvancedControls
-              adv={adv}
-              setAdv={setAdv}
-              shotType={shotTypeOverride}
-              setShotType={setShotTypeOverride}
-            />
+            <div style={{ display: "grid", gap: 18 }}>
+              {savedModels.length > 0 && (
+                <div>
+                  <label className="label">Use a saved model (your face across the catalog)</label>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <button
+                      className="tile"
+                      data-selected={modelId === null}
+                      style={{ width: 110, padding: 10, textAlign: "center" }}
+                      onClick={() => setModelId(null)}
+                    >
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>None</div>
+                      <div className="muted" style={{ fontSize: 11 }}>describe instead</div>
+                    </button>
+                    {savedModels.map((m) => (
+                      <button
+                        key={m.id}
+                        className="tile"
+                        data-selected={modelId === m.id}
+                        style={{ width: 110, padding: 0, overflow: "hidden" }}
+                        onClick={() => setModelId(m.id)}
+                      >
+                        <div style={{ aspectRatio: "3/4", background: "var(--ink)" }}>
+                          {m.image_paths[0] && (
+                            <SmartImage path={m.image_paths[0]} alt={m.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          )}
+                        </div>
+                        <div style={{ fontSize: 12, padding: "6px 8px" }}>{m.name}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {modelId === null && (
+                <AdvancedControls
+                  adv={adv}
+                  setAdv={setAdv}
+                  shotType={shotTypeOverride}
+                  setShotType={setShotTypeOverride}
+                />
+              )}
+              {modelId !== null && (
+                <p className="muted" style={{ fontSize: 13 }}>
+                  Using a saved model anchors the face and body. Shot type, set, lighting and framing
+                  still apply.
+                </p>
+              )}
+
+              <div>
+                <label className="label">Free brief (optional, Claude maps it across the shot)</label>
+                <textarea
+                  className="input"
+                  rows={2}
+                  value={freeBrief}
+                  onChange={(e) => setFreeBrief(e.target.value)}
+                  placeholder="e.g. festive Diwali campaign, warm tones, rooftop at golden hour"
+                />
+              </div>
+            </div>
           )}
         </section>
       )}
@@ -452,7 +609,33 @@ function AdvancedControls({
       <Select label="Gender" value={adv.model?.gender} options={GENDERS} onChange={(v) => set({ model: { ...adv.model, gender: v } })} />
       <Select label="Makeup" value={adv.makeup} options={MAKEUP} onChange={(v) => set({ makeup: v })} />
       <Select label="Hair" value={adv.hair} options={HAIR} onChange={(v) => set({ hair: v })} />
-      <Select label="Pose" value={adv.pose} options={POSES} onChange={(v) => set({ pose: v })} />
+      <div style={{ gridColumn: "1 / -1" }}>
+        <label className="label">Pose</label>
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {POSES.map((pose) => {
+            const thumb = thumbUrl("poses", pose);
+            const selected = adv.pose === pose;
+            return (
+              <button
+                key={pose}
+                type="button"
+                className="tile"
+                data-selected={selected}
+                onClick={() => set({ pose: selected ? undefined : pose })}
+                style={{ width: 92, padding: thumb ? 0 : 8, overflow: "hidden" }}
+                title={titleize(pose)}
+              >
+                {thumb ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={thumb} alt={titleize(pose)} loading="lazy" style={{ width: "100%", aspectRatio: "3/4", objectFit: "cover", display: "block" }} />
+                ) : (
+                  <div style={{ fontSize: 12 }}>{titleize(pose)}</div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
       <Select label="Background" value={adv.background} options={BACKGROUNDS} onChange={(v) => set({ background: v })} />
       <Select label="Lighting" value={adv.lighting} options={LIGHTING} onChange={(v) => set({ lighting: v })} />
       <Select label="Framing" value={adv.framing} options={FRAMINGS} onChange={(v) => set({ framing: v })} />

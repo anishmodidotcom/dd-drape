@@ -56,6 +56,9 @@ export interface SimTxn {
 export class LedgerSim {
   balance = 0;
   txns: SimTxn[] = [];
+  // Mirrors the (job_id, kind) idempotency in migration 0003: each reserve/settle/refund applies
+  // at most once per job.
+  private applied = new Set<string>();
 
   grant(amount: number): number {
     if (amount <= 0) throw new Error("grant amount must be positive");
@@ -66,6 +69,12 @@ export class LedgerSim {
 
   /** Debit a magnitude (positive subtracts; negative credits back). Mirrors debit_credits. */
   private debit(amount: number, kind: TxnKind, gate: boolean, jobId?: string): number {
+    // Idempotency: a repeat (job, kind) is a no-op returning the current balance.
+    if (jobId) {
+      const key = `${jobId}:${kind}`;
+      if (this.applied.has(key)) return this.balance;
+      this.applied.add(key);
+    }
     const delta = -amount;
     if (gate && this.balance + delta < 0) {
       throw new InsufficientCreditsError(this.balance, amount);

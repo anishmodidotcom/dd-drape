@@ -46,3 +46,25 @@ export async function fetchResult(slug: string, requestId: string): Promise<unkn
   const result = await fal.queue.result(slug, { requestId });
   return result.data;
 }
+
+export type FalQueueStatus = "IN_QUEUE" | "IN_PROGRESS" | "COMPLETED" | "ERROR" | "UNKNOWN";
+
+/** Poll a queued job's status (reconciler uses this when a webhook never arrives). */
+export async function getQueueStatus(
+  slug: string,
+  requestId: string
+): Promise<{ status: FalQueueStatus; data?: unknown }> {
+  ensureConfigured();
+  try {
+    const s = (await fal.queue.status(slug, { requestId })) as { status?: string };
+    const status = (s.status as FalQueueStatus) ?? "UNKNOWN";
+    if (status === "COMPLETED") {
+      const result = await fal.queue.result(slug, { requestId });
+      return { status, data: result.data };
+    }
+    return { status };
+  } catch {
+    // A 4xx from the queue for a known request usually means it errored out.
+    return { status: "ERROR" };
+  }
+}

@@ -37,7 +37,8 @@ export interface JobRow {
 export interface CreateJobInput {
   userId: string;
   userEmail?: string | null;
-  type: Need;
+  // Engine NEED for product jobs; also "model/create" for Models studio jobs.
+  type: Need | "model/create";
   payload: Record<string, unknown>;
   estimatedCredits: number;
   tier?: Tier | null;

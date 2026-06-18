@@ -2,9 +2,10 @@ import { describe, it, expect } from "vitest";
 import { estimate } from "@/lib/engine/estimator";
 
 describe("cost estimator (1 credit = $0.01 = 1 cent, round up)", () => {
-  it("cheapest image model Seedream is 4 credits ($0.04) for one image", () => {
+  it("cheapest image model Seedream EDIT is 4 credits ($0.04) for one image", () => {
     const e = estimate({ need: "image/standard" });
-    expect(e.slug).toBe("fal-ai/bytedance/seedream/v4.5/text-to-image");
+    // v2: reference-capable EDIT slug, never text-to-image.
+    expect(e.slug).toBe("fal-ai/bytedance/seedream/v4.5/edit");
     expect(e.credits).toBe(4);
   });
 
@@ -17,8 +18,8 @@ describe("cost estimator (1 credit = $0.01 = 1 cent, round up)", () => {
   });
 
   it("video estimates by the second and rounds up", () => {
-    // Seedance $0.3024/sec * 5s = 151.2 cents -> round up to 152 credits
-    expect(estimate({ need: "video/standard", seconds: 5 }).credits).toBe(152);
+    // v2: Kling v3 pro i2v $0.112/sec * 5s = 56 credits
+    expect(estimate({ need: "video/standard", seconds: 5 }).credits).toBe(56);
   });
 
   it("hero video Veo is 40 credits/sec", () => {

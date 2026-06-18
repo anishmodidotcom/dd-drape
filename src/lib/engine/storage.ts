@@ -67,7 +67,26 @@ export async function signedUrl(path: string, expiresInSeconds = 3600): Promise<
 
 /** A stored object path belongs to a user only if it sits under their namespace. */
 export function pathBelongsToUser(path: string, userId: string): boolean {
-  return path.startsWith(`uploads/${userId}/`) || path.startsWith(`results/${userId}/`);
+  return (
+    path.startsWith(`uploads/${userId}/`) ||
+    path.startsWith(`results/${userId}/`) ||
+    path.startsWith(`models/${userId}/`)
+  );
+}
+
+/** Download a hosted URL and store it at an explicit path under the user's namespace. */
+export async function storeFromUrlAt(path: string, url: string): Promise<string> {
+  const admin = getAdminClient();
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`storeFromUrlAt: download failed ${res.status}`);
+  const contentType = res.headers.get("content-type") ?? "image/png";
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  const { error } = await admin.storage.from(OUTPUT_BUCKET).upload(path, bytes, {
+    contentType,
+    upsert: true,
+  });
+  if (error) throw new Error(`storeFromUrlAt failed: ${error.message}`);
+  return path;
 }
 
 /** Write the C2PA-style provenance sidecar next to an output. Returns the manifest path. */

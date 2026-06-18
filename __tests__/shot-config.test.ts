@@ -74,13 +74,17 @@ describe("preset library", () => {
 });
 
 describe("output formats + subtypes", () => {
-  it("includes the marketplace + social targets", () => {
+  it("includes the standard dimensions + social presets (no marketplace presets)", () => {
     const ids = FORMATS.map((f) => f.id);
-    expect(ids).toEqual(expect.arrayContaining(["myntra", "amazon-in", "meesho", "instagram-story"]));
+    expect(ids).toEqual(
+      expect.arrayContaining(["square", "portrait-3-4", "portrait-4-5", "story", "landscape", "free", "ig-post", "ig-story"])
+    );
+    expect(ids).not.toContain("myntra");
   });
 
-  it("getFormat falls back to the first format", () => {
-    expect(getFormat(undefined).id).toBe(FORMATS[0].id);
+  it("getFormat falls back to the default portrait format", () => {
+    expect(getFormat(undefined).id).toBe("portrait-3-4");
+    expect(getFormat("nonexistent").id).toBe("portrait-3-4");
   });
 
   it("every category has sub-types", () => {

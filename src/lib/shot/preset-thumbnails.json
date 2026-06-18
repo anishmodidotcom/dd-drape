@@ -1,0 +1,42 @@
+{
+  "base": "base/model.png",
+  "poses": {
+    "s-curve": "poses/s-curve.png",
+    "hand-to-collarbone": "poses/hand-to-collarbone.png",
+    "walking": "poses/walking.png",
+    "seated-regal": "poses/seated-regal.png",
+    "over-shoulder-back": "poses/over-shoulder-back.png",
+    "candid-laughing": "poses/candid-laughing.png"
+  },
+  "lighting": {
+    "natural-golden-hour": "lighting/natural-golden-hour.png",
+    "butterfly-beauty": "lighting/butterfly-beauty.png",
+    "rembrandt": "lighting/rembrandt.png",
+    "soft-two-zone": "lighting/soft-two-zone.png",
+    "diffused-tent-sparkle": "lighting/diffused-tent-sparkle.png"
+  },
+  "sets": {
+    "white": "sets/white.png",
+    "natural-outdoor": "sets/natural-outdoor.png",
+    "urban-street": "sets/urban-street.png",
+    "heritage-interior": "sets/heritage-interior.png"
+  },
+  "makeup": {
+    "editorial": "makeup/editorial.png",
+    "natural-fresh": "makeup/natural-fresh.png",
+    "heavy-kohl-bridal": "makeup/heavy-kohl-bridal.png"
+  },
+  "hair": {
+    "updo": "hair/updo.png",
+    "open": "hair/open.png",
+    "braided": "hair/braided.png"
+  },
+  "presets": {
+    "marketplace-clean": "presets/marketplace-clean.png",
+    "quiet-luxury": "presets/quiet-luxury.png",
+    "festive-editorial": "presets/festive-editorial.png",
+    "bridal-regal": "presets/bridal-regal.png",
+    "demi-fine-everyday": "presets/demi-fine-everyday.png",
+    "streetwear-fusion": "presets/streetwear-fusion.png"
+  }
+}

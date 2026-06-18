@@ -6,6 +6,7 @@ import { createServerClient } from "@supabase/ssr";
 
 const PUBLIC_API_PREFIXES = [
   "/api/jobs/fal-webhook", // fal posts here; signature-verified inside the route
+  "/api/jobs/reconcile", // worker/cron poller; gated by WORKER_SHARED_SECRET inside the route
   "/api/health",
   "/api/worker", // worker callbacks, gated by WORKER_SHARED_SECRET inside the route
 ];

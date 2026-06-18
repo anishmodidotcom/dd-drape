@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BeforeAfter } from "./BeforeAfter";
+import { LoadingStudio } from "./LoadingStudio";
 import { TierBadge } from "./TierBadge";
 import { TIER_PRESENTATION, QC_CHECKLIST } from "@/lib/shot/qc";
 import { MOTION_PRESETS } from "@/lib/shot/motion";
@@ -67,6 +68,25 @@ export function ResultView({ id }: { id: string }) {
     router.push(`/app/shots/${j.jobId}`);
   }
 
+  async function recover() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/jobs/${id}/retry`, { method: "POST" });
+      const j = await res.json();
+      if (!res.ok) {
+        setError("Could not check status. Try again in a moment.");
+      } else if (j.status === "pending") {
+        setError(j.message ?? "Still rendering.");
+      }
+      await load();
+    } catch {
+      setError("Could not check status.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function approve() {
     setBusy(true);
     await fetch(`/api/jobs/${id}/qc`, {
@@ -96,16 +116,18 @@ export function ResultView({ id }: { id: string }) {
   if (error) return <p style={{ color: "var(--danger)" }}>{error}</p>;
   if (!job) return <p className="muted">Loading...</p>;
 
-  // Processing
+  // Processing: staged studio loading experience (Phase E) + user-facing recovery (always
+  // recoverable, even if the worker/webhook never lands).
   if (job.status === "queued" || job.status === "running") {
     return (
-      <div className="card" style={{ display: "grid", gap: 8 }}>
-        <h2 style={{ fontSize: 24 }}>{isVideo ? "Creating your video" : "Generating your shot"}</h2>
-        <p className="muted">
-          {isVideo
-            ? "Video runs on our render worker and takes a little longer. This page updates automatically."
-            : "This usually takes a few seconds. This page updates automatically."}
-        </p>
+      <div style={{ display: "grid", gap: 14 }}>
+        <LoadingStudio isVideo={isVideo} />
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <button className="btn btn-ghost" disabled={busy} onClick={recover}>
+            {busy ? "Checking..." : "Taking too long? Check status"}
+          </button>
+          {error && <span className="muted" style={{ fontSize: 13 }}>{error}</span>}
+        </div>
       </div>
     );
   }
@@ -156,7 +178,7 @@ export function ResultView({ id }: { id: string }) {
   const downloadName = `drape-${job.id}.${isVideo ? "mp4" : "png"}`;
 
   return (
-    <div style={{ display: "grid", gap: 20 }}>
+    <div className="fade-up" style={{ display: "grid", gap: 20 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <TierBadge tier={tier} />
         <h2 style={{ fontSize: 26 }}>{present.headline}</h2>
