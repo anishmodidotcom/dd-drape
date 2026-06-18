@@ -2,7 +2,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Uploader, type UploadedItem } from "./Uploader";
+import { SmartImage } from "./SmartImage";
 import { TierBadge } from "./TierBadge";
+
+export interface SavedModelOption {
+  id: string;
+  name: string;
+  image_paths: string[];
+}
 import { CATEGORY_LABELS, SUBTYPES } from "@/lib/shot/subtypes";
 import { presetsForCategory } from "@/lib/shot/presets";
 import { FORMATS } from "@/lib/shot/formats";
@@ -40,9 +47,11 @@ function titleize(s: string) {
   return s.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
-export function NewShotWizard() {
+export function NewShotWizard({ savedModels = [] }: { savedModels?: SavedModelOption[] }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
+  const [modelId, setModelId] = useState<string | null>(null);
+  const [freeBrief, setFreeBrief] = useState("");
 
   // Step 1: uploads
   const [products, setProducts] = useState<UploadedItem[]>([]);
@@ -80,6 +89,7 @@ export function NewShotWizard() {
       mode === "presets"
         ? presetSpec.shotType ?? framingToShotType(framing, "on-model-full")
         : shotTypeOverride;
+    const selectedModel = savedModels.find((m) => m.id === modelId);
     return {
       ...presetSpec,
       category,
@@ -87,9 +97,11 @@ export function NewShotWizard() {
       shotType, // canonical for tiering; not overwritten by the preset spread
       referenceImagePaths: products.map((p) => p.path),
       vibeReferencePath: vibeRef?.path,
+      modelImagePaths: selectedModel?.image_paths,
+      freeBrief: freeBrief.trim() || undefined,
       video: videoOn ? { enabled: true, motionPreset, seconds } : undefined,
     } as ShotSpec;
-  }, [category, subType, mode, presetId, adv, shotTypeOverride, products, vibeRef, videoOn, motionPreset, seconds]);
+  }, [category, subType, mode, presetId, adv, shotTypeOverride, products, vibeRef, videoOn, motionPreset, seconds, modelId, savedModels, freeBrief]);
 
   // Fetch estimate when entering review.
   useEffect(() => {
@@ -265,12 +277,66 @@ export function NewShotWizard() {
               ))}
             </div>
           ) : (
-            <AdvancedControls
-              adv={adv}
-              setAdv={setAdv}
-              shotType={shotTypeOverride}
-              setShotType={setShotTypeOverride}
-            />
+            <div style={{ display: "grid", gap: 18 }}>
+              {savedModels.length > 0 && (
+                <div>
+                  <label className="label">Use a saved model (your face across the catalog)</label>
+                  <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                    <button
+                      className="tile"
+                      data-selected={modelId === null}
+                      style={{ width: 110, padding: 10, textAlign: "center" }}
+                      onClick={() => setModelId(null)}
+                    >
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>None</div>
+                      <div className="muted" style={{ fontSize: 11 }}>describe instead</div>
+                    </button>
+                    {savedModels.map((m) => (
+                      <button
+                        key={m.id}
+                        className="tile"
+                        data-selected={modelId === m.id}
+                        style={{ width: 110, padding: 0, overflow: "hidden" }}
+                        onClick={() => setModelId(m.id)}
+                      >
+                        <div style={{ aspectRatio: "3/4", background: "var(--ink)" }}>
+                          {m.image_paths[0] && (
+                            <SmartImage path={m.image_paths[0]} alt={m.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          )}
+                        </div>
+                        <div style={{ fontSize: 12, padding: "6px 8px" }}>{m.name}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {modelId === null && (
+                <AdvancedControls
+                  adv={adv}
+                  setAdv={setAdv}
+                  shotType={shotTypeOverride}
+                  setShotType={setShotTypeOverride}
+                />
+              )}
+              {modelId !== null && (
+                <p className="muted" style={{ fontSize: 13 }}>
+                  Using a saved model anchors the face and body. Shot type, set, lighting and framing
+                  still apply.
+                </p>
+              )}
+
+              <div>
+                <label className="label">Free brief (optional, Claude maps it across the shot)</label>
+                <textarea
+                  className="input"
+                  rows={2}
+                  value={freeBrief}
+                  onChange={(e) => setFreeBrief(e.target.value)}
+                  placeholder="e.g. festive Diwali campaign, warm tones, rooftop at golden hour"
+                />
+              </div>
+            </div>
           )}
         </section>
       )}

@@ -57,6 +57,30 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["drape_products"]["Insert"]>;
         Relationships: [];
       };
+      drape_models: {
+        Row: {
+          id: string;
+          user_id: string;
+          name: string;
+          inputs: Json;
+          image_paths: string[];
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          inputs?: Json;
+          image_paths?: string[];
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["drape_models"]["Insert"]>;
+        Relationships: [];
+      };
       drape_jobs: {
         Row: {
           id: string;
