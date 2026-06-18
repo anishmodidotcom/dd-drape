@@ -1,11 +1,53 @@
 "use client";
-import { useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // The before -> after reveal (brand motif). Draggable split slider over the original upload and
 // the generated shot.
-export function BeforeAfter({ before, after, alt }: { before: string; after: string; alt: string }) {
+//
+// Accepts EITHER direct URLs (before/after - used on the public landing) OR storage paths
+// (beforePath/afterPath - used in the studio). When given paths it resolves short-lived signed
+// URLs via /api/media and auto-refreshes them on load error, so a long-open result page never
+// shows a broken preview (audit item 5).
+
+function useSignedSrc(path?: string | null, directUrl?: string): [string | null, () => void] {
+  const [url, setUrl] = useState<string | null>(directUrl ?? null);
+  const refresh = useCallback(async () => {
+    if (!path) {
+      setUrl(directUrl ?? null);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/media?path=${encodeURIComponent(path)}`);
+      if (!res.ok) throw new Error(String(res.status));
+      const j = await res.json();
+      setUrl(j.url as string);
+    } catch {
+      setUrl(null);
+    }
+  }, [path, directUrl]);
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+  return [url, refresh];
+}
+
+export function BeforeAfter({
+  before,
+  after,
+  beforePath,
+  afterPath,
+  alt,
+}: {
+  before?: string;
+  after?: string;
+  beforePath?: string | null;
+  afterPath?: string | null;
+  alt: string;
+}) {
   const [pos, setPos] = useState(50);
   const ref = useRef<HTMLDivElement>(null);
+  const [beforeSrc, refreshBefore] = useSignedSrc(beforePath, before);
+  const [afterSrc, refreshAfter] = useSignedSrc(afterPath, after);
 
   function onMove(clientX: number) {
     const el = ref.current;
@@ -33,12 +75,16 @@ export function BeforeAfter({ before, after, alt }: { before: string; after: str
       onTouchMove={(e) => onMove(e.touches[0].clientX)}
     >
       {/* after (full) */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={after} alt={`${alt}, generated`} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+      {afterSrc && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={afterSrc} alt={`${alt}, generated`} onError={() => refreshAfter()} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+      )}
       {/* before (clipped) */}
       <div style={{ position: "absolute", inset: 0, width: `${pos}%`, overflow: "hidden" }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={before} alt={`${alt}, original`} style={{ width: `${(100 / pos) * 100}%`, height: "100%", objectFit: "cover", maxWidth: "none" }} />
+        {beforeSrc && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={beforeSrc} alt={`${alt}, original`} onError={() => refreshBefore()} style={{ width: `${(100 / pos) * 100}%`, height: "100%", objectFit: "cover", maxWidth: "none" }} />
+        )}
         <span className="chip" style={{ position: "absolute", top: 10, left: 10, fontSize: 11 }}>Original</span>
       </div>
       <span className="chip" style={{ position: "absolute", top: 10, right: 10, fontSize: 11 }}>Generated</span>

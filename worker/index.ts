@@ -22,10 +22,13 @@ const FAL_KEY = requireEnv("FAL_KEY");
 const APP_URL = requireEnv("NEXT_PUBLIC_APP_URL");
 const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 5000);
 
-// Async needs handled by the worker. Mirror the async entries in src/lib/engine/registry.ts.
+// Async needs handled by the worker. These slugs MUST match src/lib/engine/registry.ts exactly
+// (the audit found them drifted). video/standard = Kling v3 pro i2v, which takes start_image_url
+// (set by /api/jobs/[id]/video). Keep all three definitions (registry, video route field, worker
+// slug) in agreement.
 const VIDEO_NEEDS = ["video/standard", "video/hero", "upscale/video"];
 const SLUGS: Record<string, string> = {
-  "video/standard": "fal-ai/bytedance/seedance-2.0/image-to-video",
+  "video/standard": "fal-ai/kling-video/v3/pro/image-to-video",
   "video/hero": "fal-ai/veo3.1",
   "upscale/video": "fal-ai/topaz/upscale/video",
 };
@@ -123,6 +126,8 @@ async function loop() {
       }
       // Reconcile roughly once a minute (every ~12 idle cycles at 5s).
       if (++cycles % 12 === 0) await reconcile();
+      // Heartbeat roughly every 5 min so we can confirm the loop is actually running in prod.
+      if (cycles % 60 === 0) console.log(`[heartbeat] worker alive, ${cycles} idle cycles`);
     } catch (err) {
       console.error("worker loop error:", err);
     }

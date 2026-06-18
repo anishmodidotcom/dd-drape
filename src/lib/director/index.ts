@@ -1,6 +1,7 @@
 import "server-only";
 import { classifyTier, type Tier } from "@/lib/engine/tier";
 import { redPolicy } from "@/lib/shot/compose";
+import { planNeed } from "@/lib/shot/plan";
 import type { ShotSpec } from "@/lib/shot/spec";
 import { directorEnabled } from "./client";
 import { analyzeProduct } from "./analyze";
@@ -81,10 +82,14 @@ export async function directShot(input: DirectInput): Promise<DirectResult> {
     composition = fallbackCompose(spec, analysis, hasModelIdentity);
   }
 
-  // Safety: tryon requires a model identity; downgrade to hero fidelity if missing.
-  if (composition.model_route === "tryon" && !hasModelIdentity) {
-    composition.model_route = "image/hero";
-  }
+  // ONE routing brain (audit item 3): the cost-bearing route is decided deterministically by
+  // planNeed, identical to what /api/estimate quoted. Claude still wrote the prompt/params, but it
+  // does not get to change the need (and therefore the price). planNeed reads model identity from
+  // the spec; reflect any identity passed via modelIdentityUrls so the tryon route matches.
+  const routeSpec: ShotSpec = hasModelIdentity
+    ? { ...spec, modelImagePaths: spec.modelImagePaths?.length ? spec.modelImagePaths : input.modelIdentityUrls }
+    : spec;
+  composition.model_route = planNeed(routeSpec);
 
   // Tier + RED policy (no fabricated facets).
   const tier = classifyTier({

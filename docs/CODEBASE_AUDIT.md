@@ -378,3 +378,41 @@ UI-agnostic and should be preserved unchanged.
   against a real delivery; whether the Railway worker is deployed; the exact video failure point;
   B1 pixel rendering in a real browser (layout fix is correct in code).
 - No live calls were made for this audit.
+
+---
+
+## Addendum: audit-fix pass (applied)
+
+The following defects from this audit were fixed in a dedicated pass (no UI redesign; engine/gate/
+ledger/RLS preserved):
+
+1. **`/api/jobs/submit` removed** — the dead, ungated generation endpoint is deleted.
+2. **Video aligned + gated** — registry slug, route field, and worker slug now all agree on Kling
+   v3 pro i2v with `start_image_url`. Video is behind `DRAPE_VIDEO_ENABLED` (default OFF); when off,
+   `/api/jobs/[id]/video` fails fast and clean (503) **before** any reserve/charge. When a video job
+   does exist with no worker, the UI auto-reconcile fails+refunds it. `worker/stitch.ts` is marked
+   `TODO(final-pass video rebuild)` (dormant, not dead). Intended wiring is documented in
+   `src/lib/engine/features.ts`.
+3. **One routing brain** — `/api/estimate` and the director both route via `src/lib/shot/plan.ts`
+   (`planRoute`/`planNeed`). The director overrides Claude's `model_route` with `planNeed`, so the
+   quoted credits always equal the charged credits (the saved-model 15-vs-8 drift is gone). Legacy
+   `buildGeneration` deleted.
+4. **Fidelity gate is deliberate** — runs on every product image completion; records
+   `verified | unverified | failed` on the job. A gate that cannot run (no key / error) is logged
+   and the output is flagged **unverified** in the UI rather than implied-verified. Confirmed
+   non-match still refunds + fails.
+5. **Result screen uses signed-URL refresh** — `ResultView` and `BeforeAfter` render from storage
+   paths via `SmartImage` / the smart `BeforeAfter`; download resolves a fresh signed URL at click
+   time. Previews no longer break on expiry.
+6. **No orphan jobs** — `runJob` reserves credits FIRST (against a pre-generated id), then creates
+   the job row; an insufficient-credits failure leaves no dangling `queued` job.
+7. **Dead code removed** — `fal.submitAsync`/`fetchResult` deleted; `buildGeneration` deleted;
+   `stitch.ts` marked for the final-pass rebuild. (Makeup/hair/lighting/set thumbnails intentionally
+   kept for the redesign galleries.)
+8. **Worker heartbeat** — the worker logs a heartbeat every ~5 min so its loop can be verified in
+   prod. `nixpacks.toml` start command is `npm run worker` (if Railway is running `next start`, that
+   is a Railway service-config issue, not code). Note: `qc_status = pending` is **correct** for
+   AMBER jobs awaiting review; it advances to `approved` on user approval. It is not a stuck state.
+
+Still unverified (need live): video end-to-end once enabled + worker deployed; fal webhook signature
+against a real delivery; whether the Railway service actually runs `npm run worker`.

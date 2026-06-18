@@ -1,7 +1,7 @@
 import "server-only";
 import { estimate, type EstimateInput } from "./estimator";
 import { lookup, isAsyncNeed, type Need } from "./registry";
-import { createJob, markJobDone, markJobFailed, type Tier, type QcStatus } from "./jobs";
+import { createJob, markJobDone, markJobFailed, setJobFidelity, type Tier, type QcStatus } from "./jobs";
 import { reserveCredits, settleCredits, refundCredits } from "./credits";
 import { runSync } from "./fal";
 import { storeOutputFromUrl, storeManifest, signedUrl } from "./storage";
@@ -80,19 +80,31 @@ export async function runJob(input: RunInput): Promise<RunResult> {
   const entry = lookup(input.need);
   const qcStatus: QcStatus = input.qcStatus ?? "none";
 
-  const job = await createJob({
-    userId: input.userId,
-    userEmail: input.userEmail,
-    type: input.need,
-    payload: { falInput: input.falInput, estimate: est, meta: input.meta ?? {} },
-    estimatedCredits: est.credits,
-    tier: input.tier ?? null,
-    qcStatus,
-    parentJobId: input.parentJobId ?? null,
-  });
+  // Audit item 6: RESERVE FIRST against a pre-generated id, so an insufficient-credits failure
+  // never leaves an orphan queued job. The id is just a uuid (credit_transactions.job_id has no FK
+  // to jobs), so reserving before the row exists is safe; on a gated failure nothing is written.
+  const jobId = crypto.randomUUID();
+  await reserveCredits(input.userId, est.credits, jobId, label);
 
-  // RESERVE at submit (gates on balance). Throws InsufficientCreditsError if unaffordable.
-  await reserveCredits(input.userId, est.credits, job.id, label);
+  // Only after a successful reserve do we create the job row.
+  let job;
+  try {
+    job = await createJob({
+      id: jobId,
+      userId: input.userId,
+      userEmail: input.userEmail,
+      type: input.need,
+      payload: { falInput: input.falInput, estimate: est, meta: input.meta ?? {} },
+      estimatedCredits: est.credits,
+      tier: input.tier ?? null,
+      qcStatus,
+      parentJobId: input.parentJobId ?? null,
+    });
+  } catch (err) {
+    // Reserve succeeded but the row failed to insert: refund so credits are never stranded.
+    await refundCredits(input.userId, est.credits, jobId, `${label}, refunded`);
+    throw err;
+  }
 
   // RED block: nothing is generated. Refund the reservation and surface a clear message.
   if (input.blocked) {
@@ -131,29 +143,39 @@ export async function runJob(input: RunInput): Promise<RunResult> {
     const ext = input.need.startsWith("video/") ? "mp4" : "png";
     const path = await storeOutputFromUrl(input.userId, job.id, url, ext);
 
-    // FIDELITY GATE (v2 trust backbone): compare the source product against the output. On a
-    // non-match, refund and fail with a clear message rather than shipping a drifted product.
-    if (input.fidelityGate && directorEnabled() && !input.need.startsWith("video/")) {
-      try {
-        const outUrl = await signedUrl(path, 600);
-        const verdict = await checkFidelity(input.fidelityGate.sourceUrl, outUrl);
-        if (!verdict.match) {
-          await refundCredits(input.userId, est.credits, job.id, `${label}, refunded`);
-          await markJobFailed(
-            job.id,
-            `${FIDELITY_FAIL_PREFIX}${verdict.reasons.join("; ") || "product drifted from the source"}`
-          );
-          return {
-            jobId: job.id,
-            status: "failed",
-            tier: input.tier,
-            estimatedCredits: est.credits,
-            message:
-              "We caught a fidelity drift between the result and your product, so we did not deliver it. Your credits were refunded.",
-          };
+    // FIDELITY GATE (audit item 4): runs on every product generation. The outcome is recorded
+    // explicitly on the job as verified | unverified | failed. We never silently pass a drifted
+    // product as "matched": a confirmed non-match is refunded + failed; a gate that cannot run
+    // (no key, or an error) is logged and flagged "unverified" rather than implied-verified.
+    if (input.fidelityGate && !input.need.startsWith("video/")) {
+      if (!directorEnabled()) {
+        console.warn(`[fidelity] gate skipped for job ${job.id}: ANTHROPIC_API_KEY not set`);
+        await setJobFidelity(job, "unverified").catch(() => {});
+      } else {
+        try {
+          const outUrl = await signedUrl(path, 600);
+          const verdict = await checkFidelity(input.fidelityGate.sourceUrl, outUrl);
+          if (!verdict.match) {
+            await refundCredits(input.userId, est.credits, job.id, `${label}, refunded`);
+            await markJobFailed(
+              job.id,
+              `${FIDELITY_FAIL_PREFIX}${verdict.reasons.join("; ") || "product drifted from the source"}`
+            );
+            return {
+              jobId: job.id,
+              status: "failed",
+              tier: input.tier,
+              estimatedCredits: est.credits,
+              message:
+                "We caught a fidelity drift between the result and your product, so we did not deliver it. Your credits were refunded.",
+            };
+          }
+          await setJobFidelity(job, "verified").catch(() => {});
+        } catch (gateErr) {
+          // The gate could not run. Deliver the output but flag it unverified, do not imply a match.
+          console.warn(`[fidelity] gate error for job ${job.id}, flagged unverified:`, gateErr);
+          await setJobFidelity(job, "unverified").catch(() => {});
         }
-      } catch {
-        // Gate failure should not strand a good generation; proceed without blocking.
       }
     }
 
