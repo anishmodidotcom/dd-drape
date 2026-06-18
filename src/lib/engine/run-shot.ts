@@ -51,6 +51,9 @@ export async function runShot(
   });
 
   const qcStatus: QcStatus = directed.tier === "amber" ? "pending" : "none";
+  const subLabel = (directed.analysis.garment_subtype ?? spec.subType)
+    .replace(/-/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
 
   return runJob({
     userId,
@@ -61,6 +64,7 @@ export async function runShot(
     tier: directed.tier,
     qcStatus,
     blocked: directed.blocked,
+    creditLabel: `${subLabel} shot`,
     fidelityGate: { sourceUrl: productUrls[0] },
     meta: {
       spec,

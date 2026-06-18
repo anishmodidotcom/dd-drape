@@ -1,14 +1,27 @@
-import { getBalance, getTransactions } from "@/lib/data";
+import { getBalance, getTransactions, type CreditTxn } from "@/lib/data";
 import { GetCreditsModal } from "@/components/GetCreditsModal";
 
 export const metadata = { title: "Credits. Drape." };
 
 const KIND_LABEL: Record<string, string> = {
-  grant: "Granted",
+  grant: "Added",
   reserve: "Reserved",
-  settle: "Settled",
+  settle: "Charged",
   refund: "Refunded",
 };
+
+// Human-readable description (MN5): never leak internal codes like "image/hero" or "est=15 act=15".
+function describe(t: CreditTxn): string {
+  const note = (t.note ?? "").trim();
+  // Legacy/internal codes -> friendly fallback.
+  if (!note || /image\/|video\/|model\/|est=|act=|^reserve$|^settle$|^refund/i.test(note)) {
+    if (t.kind === "grant") return note.includes("signup") ? "Signup credit" : "Credit top-up";
+    if (t.kind === "refund") return "Refunded";
+    return "Shot";
+  }
+  if (t.kind === "grant" && /signup/i.test(note)) return "Signup credit";
+  return note;
+}
 
 export default async function CreditsPage() {
   const [balance, txns] = await Promise.all([getBalance(), getTransactions(100)]);
@@ -29,27 +42,27 @@ export default async function CreditsPage() {
       <div className="card" style={{ padding: 0, overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
           <thead>
-            <tr style={{ textAlign: "left", background: "color-mix(in srgb, var(--line) 30%, white)" }}>
-              <th style={{ padding: "12px 16px" }}>Type</th>
-              <th style={{ padding: "12px 16px" }}>Note</th>
-              <th style={{ padding: "12px 16px", textAlign: "right" }}>Amount</th>
-              <th style={{ padding: "12px 16px", textAlign: "right" }}>Balance</th>
-              <th style={{ padding: "12px 16px" }}>When</th>
+            <tr style={{ textAlign: "left", background: "var(--surface-2)" }}>
+              <th style={{ padding: "12px 16px", fontWeight: 600 }}>Activity</th>
+              <th style={{ padding: "12px 16px", fontWeight: 600 }}>Type</th>
+              <th style={{ padding: "12px 16px", textAlign: "right", fontWeight: 600 }}>Amount</th>
+              <th style={{ padding: "12px 16px", textAlign: "right", fontWeight: 600 }}>Balance</th>
+              <th style={{ padding: "12px 16px", fontWeight: 600 }}>When</th>
             </tr>
           </thead>
           <tbody>
             {txns.length === 0 && (
               <tr>
                 <td colSpan={5} style={{ padding: 24, textAlign: "center" }} className="muted">
-                  No transactions yet.
+                  No activity yet.
                 </td>
               </tr>
             )}
             {txns.map((t) => (
-              <tr key={t.id} style={{ borderTop: "1px solid var(--line)" }}>
-                <td style={{ padding: "12px 16px" }}>{KIND_LABEL[t.kind] ?? t.kind}</td>
-                <td style={{ padding: "12px 16px" }} className="muted">{t.note ?? ""}</td>
-                <td style={{ padding: "12px 16px", textAlign: "right", color: t.amount >= 0 ? "var(--success)" : "var(--ink)" }}>
+              <tr key={t.id} style={{ borderTop: "1px solid var(--line-soft)" }}>
+                <td style={{ padding: "12px 16px" }}>{describe(t)}</td>
+                <td style={{ padding: "12px 16px" }} className="muted">{KIND_LABEL[t.kind] ?? t.kind}</td>
+                <td style={{ padding: "12px 16px", textAlign: "right", color: t.amount >= 0 ? "#6fe6a0" : "var(--porcelain)" }}>
                   {t.amount >= 0 ? "+" : ""}
                   {t.amount}
                 </td>

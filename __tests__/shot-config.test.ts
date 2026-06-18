@@ -74,12 +74,16 @@ describe("preset library", () => {
 });
 
 describe("output formats + subtypes", () => {
-  it("includes the standard dimensions + social presets (no marketplace presets)", () => {
+  it("is a deduped list of distinct ratios (no marketplace presets, no IG duplicates)", () => {
     const ids = FORMATS.map((f) => f.id);
     expect(ids).toEqual(
-      expect.arrayContaining(["square", "portrait-3-4", "portrait-4-5", "story", "landscape", "free", "ig-post", "ig-story"])
+      expect.arrayContaining(["square", "portrait-3-4", "portrait-4-5", "story", "landscape", "free"])
     );
     expect(ids).not.toContain("myntra");
+    expect(ids).not.toContain("ig-post");
+    // no two formats share the same ratio (the IG-* duplicates are gone)
+    const ratios = FORMATS.map((f) => f.ratio);
+    expect(new Set(ratios).size).toBe(ratios.length);
   });
 
   it("getFormat falls back to the default portrait format", () => {

@@ -2,7 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/supabase/server";
 import { getJob } from "@/lib/engine/jobs";
 import { signedUrl } from "@/lib/engine/storage";
-import { RED_BLOCK_PREFIX } from "@/lib/engine/run";
+import { RED_BLOCK_PREFIX, FIDELITY_FAIL_PREFIX } from "@/lib/engine/run";
+
+// Turn an internal last_error into a clean, human failure reason (no codes / vendor names).
+function humanFailure(lastError: string | null): string {
+  if (!lastError) return "Something went wrong while generating this shot.";
+  if (lastError.startsWith(FIDELITY_FAIL_PREFIX)) {
+    return "We caught a drift between the result and your product, so we did not deliver it.";
+  }
+  if (/insufficient/i.test(lastError)) return "There were not enough credits to complete this.";
+  if (/no output|no image|timeout|provider|fal|render/i.test(lastError)) {
+    return "The render did not complete.";
+  }
+  return "Something went wrong while generating this shot.";
+}
 
 // GET /api/jobs/[id]
 // Returns the job's live status plus short-lived signed URLs for the result and the original
@@ -45,9 +58,12 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     beforeUrl,
     thumbUrl,
     blocked,
-    failed: job.status === "failed" && !blocked ? "Generation failed. Your credits were refunded." : null,
+    failed: job.status === "failed" && !blocked,
+    failureReason: job.status === "failed" && !blocked ? humanFailure(job.last_error) : null,
+    refunded: job.status === "failed", // failure + RED block both refund
     aiLabel: (meta.aiLabel as boolean | undefined) ?? true,
     format: (meta.format as string | null | undefined) ?? null,
+    category: (meta.category as string | undefined) ?? null,
     parentJobId: job.parent_job_id,
     createdAt: job.created_at,
   });

@@ -67,7 +67,7 @@ export function Uploader({
       <input
         ref={inputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp,video/mp4,video/quicktime"
+        accept="image/png,image/jpeg,image/webp"
         hidden
         onChange={(e) => onFiles(e.target.files)}
       />

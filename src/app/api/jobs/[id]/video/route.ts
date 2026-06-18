@@ -50,6 +50,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       userId: user.id,
       userEmail: user.email ?? null,
       need: "video/standard",
+      creditLabel: "Video",
       falInput: { image_url: stillUrl, prompt, duration: seconds },
       estimateExtras: { seconds },
       tier: still.tier,

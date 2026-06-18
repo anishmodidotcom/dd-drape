@@ -33,6 +33,8 @@ export interface RunInput {
   blocked?: string;
   /** Extra metadata stored on the job payload (shot spec summary, reference paths, etc.). */
   meta?: Record<string, unknown>;
+  /** Human-readable label for the credit ledger (e.g. "Saree shot", "Video"). No internal codes. */
+  creditLabel?: string;
   /** Post-generation fidelity gate: compares source product vs output, refunds on a non-match. */
   fidelityGate?: { sourceUrl: string };
 }
@@ -74,6 +76,7 @@ export interface RunResult {
 
 export async function runJob(input: RunInput): Promise<RunResult> {
   const est = estimate({ need: input.need, ...input.estimateExtras });
+  const label = input.creditLabel ?? (input.need.startsWith("video/") ? "Video" : "Shot");
   const entry = lookup(input.need);
   const qcStatus: QcStatus = input.qcStatus ?? "none";
 
@@ -89,11 +92,11 @@ export async function runJob(input: RunInput): Promise<RunResult> {
   });
 
   // RESERVE at submit (gates on balance). Throws InsufficientCreditsError if unaffordable.
-  await reserveCredits(input.userId, est.credits, job.id, `reserve ${input.need}`);
+  await reserveCredits(input.userId, est.credits, job.id, label);
 
   // RED block: nothing is generated. Refund the reservation and surface a clear message.
   if (input.blocked) {
-    await refundCredits(input.userId, est.credits, job.id);
+    await refundCredits(input.userId, est.credits, job.id, `${label}, refunded`);
     await markJobFailed(job.id, `${RED_BLOCK_PREFIX}${input.blocked}`);
     return {
       jobId: job.id,
@@ -135,7 +138,7 @@ export async function runJob(input: RunInput): Promise<RunResult> {
         const outUrl = await signedUrl(path, 600);
         const verdict = await checkFidelity(input.fidelityGate.sourceUrl, outUrl);
         if (!verdict.match) {
-          await refundCredits(input.userId, est.credits, job.id);
+          await refundCredits(input.userId, est.credits, job.id, `${label}, refunded`);
           await markJobFailed(
             job.id,
             `${FIDELITY_FAIL_PREFIX}${verdict.reasons.join("; ") || "product drifted from the source"}`
@@ -171,7 +174,7 @@ export async function runJob(input: RunInput): Promise<RunResult> {
     ).catch(() => undefined);
 
     const actual = est.credits; // fixed per-unit cost; settle records the (zero) delta
-    await settleCredits(input.userId, est.credits, actual, job.id);
+    await settleCredits(input.userId, est.credits, actual, job.id, label);
     await markJobDone(job.id, path, actual, requestId);
 
     return {
@@ -184,7 +187,7 @@ export async function runJob(input: RunInput): Promise<RunResult> {
       falRequestId: requestId,
     };
   } catch (err) {
-    await refundCredits(input.userId, est.credits, job.id);
+    await refundCredits(input.userId, est.credits, job.id, `${label}, refunded`);
     await markJobFailed(job.id, String(err));
     return {
       jobId: job.id,
