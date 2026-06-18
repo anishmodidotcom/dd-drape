@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BeforeAfter } from "./BeforeAfter";
+import { LoadingStudio } from "./LoadingStudio";
 import { TierBadge } from "./TierBadge";
 import { TIER_PRESENTATION, QC_CHECKLIST } from "@/lib/shot/qc";
 import { MOTION_PRESETS } from "@/lib/shot/motion";
@@ -96,18 +97,9 @@ export function ResultView({ id }: { id: string }) {
   if (error) return <p style={{ color: "var(--danger)" }}>{error}</p>;
   if (!job) return <p className="muted">Loading...</p>;
 
-  // Processing
+  // Processing: staged studio loading experience (Phase E).
   if (job.status === "queued" || job.status === "running") {
-    return (
-      <div className="card" style={{ display: "grid", gap: 8 }}>
-        <h2 style={{ fontSize: 24 }}>{isVideo ? "Creating your video" : "Generating your shot"}</h2>
-        <p className="muted">
-          {isVideo
-            ? "Video runs on our render worker and takes a little longer. This page updates automatically."
-            : "This usually takes a few seconds. This page updates automatically."}
-        </p>
-      </div>
-    );
+    return <LoadingStudio isVideo={isVideo} />;
   }
 
   // RED block (no silent dead-ends): honest message, credits refunded.
@@ -156,7 +148,7 @@ export function ResultView({ id }: { id: string }) {
   const downloadName = `drape-${job.id}.${isVideo ? "mp4" : "png"}`;
 
   return (
-    <div style={{ display: "grid", gap: 20 }}>
+    <div className="fade-up" style={{ display: "grid", gap: 20 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
         <TierBadge tier={tier} />
         <h2 style={{ fontSize: 26 }}>{present.headline}</h2>
