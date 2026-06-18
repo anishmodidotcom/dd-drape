@@ -48,3 +48,38 @@ export async function reconcileStaleJobs(minutes = 15): Promise<ReconcileSummary
   }
   return summary;
 }
+
+export interface ReconcileOneResult {
+  status: "done" | "failed" | "pending" | "noop";
+  message?: string;
+}
+
+// Reconcile a SINGLE job on demand (the user-facing retry affordance). The caller must have
+// already verified ownership. Guarantees recoverability: a job that never got a fal request id
+// (worker never picked it up) is failed + refunded so the user is never stranded or overcharged.
+export async function reconcileOneJob(job: JobRow): Promise<ReconcileOneResult> {
+  if (job.status === "done") return { status: "done" };
+  if (job.status === "failed") return { status: "failed" };
+
+  if (!job.fal_request_id) {
+    await finalizeFailure(job, "reconcile: never started (no provider request); credits refunded");
+    return { status: "failed", message: "That job never started, so we refunded your credits. You can try again." };
+  }
+
+  const slug = lookup(job.type as Need).slug;
+  const { status, data } = await getQueueStatus(slug, job.fal_request_id);
+  if (status === "COMPLETED") {
+    const url = firstOutputUrl(data);
+    if (url) {
+      await finalizeSuccess(job, url);
+      return { status: "done" };
+    }
+    await finalizeFailure(job, "reconcile: completed with no output; credits refunded");
+    return { status: "failed", message: "The render finished without an image, so we refunded your credits." };
+  }
+  if (status === "ERROR") {
+    await finalizeFailure(job, "reconcile: provider error / lost request; credits refunded");
+    return { status: "failed", message: "The render failed, so we refunded your credits. You can try again." };
+  }
+  return { status: "pending", message: "Still rendering. Hang tight, it will update automatically." };
+}

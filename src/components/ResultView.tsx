@@ -68,6 +68,25 @@ export function ResultView({ id }: { id: string }) {
     router.push(`/app/shots/${j.jobId}`);
   }
 
+  async function recover() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/jobs/${id}/retry`, { method: "POST" });
+      const j = await res.json();
+      if (!res.ok) {
+        setError("Could not check status. Try again in a moment.");
+      } else if (j.status === "pending") {
+        setError(j.message ?? "Still rendering.");
+      }
+      await load();
+    } catch {
+      setError("Could not check status.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function approve() {
     setBusy(true);
     await fetch(`/api/jobs/${id}/qc`, {
@@ -97,9 +116,20 @@ export function ResultView({ id }: { id: string }) {
   if (error) return <p style={{ color: "var(--danger)" }}>{error}</p>;
   if (!job) return <p className="muted">Loading...</p>;
 
-  // Processing: staged studio loading experience (Phase E).
+  // Processing: staged studio loading experience (Phase E) + user-facing recovery (always
+  // recoverable, even if the worker/webhook never lands).
   if (job.status === "queued" || job.status === "running") {
-    return <LoadingStudio isVideo={isVideo} />;
+    return (
+      <div style={{ display: "grid", gap: 14 }}>
+        <LoadingStudio isVideo={isVideo} />
+        <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+          <button className="btn btn-ghost" disabled={busy} onClick={recover}>
+            {busy ? "Checking..." : "Taking too long? Check status"}
+          </button>
+          {error && <span className="muted" style={{ fontSize: 13 }}>{error}</span>}
+        </div>
+      </div>
+    );
   }
 
   // RED block (no silent dead-ends): honest message, credits refunded.
