@@ -607,6 +607,15 @@ textarea.input {
   }
 }
 
+@media (max-width: 760px) {
+  .auth-split {
+    grid-template-columns: 1fr !important;
+  }
+  .auth-aside {
+    display: none;
+  }
+}
+
 /* ---------- Glass (overlays / sheets only) ---------- */
 .glass {
   background: var(--glass-bg);

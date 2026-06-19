@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Uploader, type UploadedItem } from "./Uploader";
 import { SmartImage } from "./SmartImage";
+import { BeforeAfter } from "./BeforeAfter";
 import { ResultView } from "./ResultView";
 import { TierBadge } from "./TierBadge";
 import { GalleryPicker, type PickOption } from "./ui/GalleryPicker";
@@ -579,12 +580,26 @@ function LookCard({ label, src, selected, onClick }: { label: string; src: strin
 }
 
 function EmptyCanvas() {
+  const [example, setExample] = useState(false);
   return (
     <div style={{ display: "grid", placeItems: "center", padding: 32, textAlign: "center", position: "relative", width: "100%" }}>
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src="/empty/studio.png" alt="" style={{ width: "100%", maxWidth: 360, borderRadius: 14, opacity: 0.85, marginBottom: 18 }} />
-      <h2 style={{ fontSize: 24 }}>The set is ready</h2>
-      <p className="muted" style={{ maxWidth: "34ch", marginTop: 6 }}>Upload your product to step on set. Your piece stays the anchor for every shoot.</p>
+      {example ? (
+        <div style={{ width: "100%", maxWidth: 360 }}>
+          <BeforeAfter before="/before-after/1-before.png" after="/before-after/1-after.png" alt="example shoot" />
+          <p className="muted" style={{ fontSize: 13, marginTop: 12 }}>
+            A flat-lay kurta, placed on a muse with the exact colour and chikankari intact. Drag to reveal.
+          </p>
+          <button className="btn btn-ghost" style={{ marginTop: 12, fontSize: 13, padding: "8px 16px" }} onClick={() => setExample(false)}>Back</button>
+        </div>
+      ) : (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/empty/studio.png" alt="" style={{ width: "100%", maxWidth: 360, borderRadius: 14, opacity: 0.85, marginBottom: 18 }} />
+          <h2 style={{ fontSize: 24 }}>The set is ready</h2>
+          <p className="muted" style={{ maxWidth: "34ch", marginTop: 6 }}>Upload your product to step on set. Your piece stays the anchor for every shoot.</p>
+          <button className="btn btn-ghost" style={{ marginTop: 16, fontSize: 13, padding: "9px 18px" }} onClick={() => setExample(true)}>See an example shoot</button>
+        </>
+      )}
     </div>
   );
 }
