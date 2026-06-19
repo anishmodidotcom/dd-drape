@@ -451,9 +451,72 @@ textarea.input {
   min-height: 100vh;
 }
 .content-inner {
-  max-width: 980px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: 28px clamp(16px, 4vw, 40px) 96px;
+}
+
+/* ---------- Studio workspace (one screen: control panel + canvas) ---------- */
+.studio {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+.studio-panel {
+  display: grid;
+  gap: 24px;
+  position: sticky;
+  top: 84px;
+  max-height: calc(100vh - 104px);
+  overflow-y: auto;
+  padding-right: 6px;
+  scrollbar-width: thin;
+}
+.studio-canvas {
+  position: sticky;
+  top: 84px;
+  display: grid;
+  gap: 16px;
+}
+.studio-sec {
+  display: grid;
+  gap: 10px;
+}
+.studio-sec > .label {
+  margin-bottom: 0;
+}
+.actionbar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(180deg, var(--surface-2), var(--surface));
+  box-shadow: var(--shadow-2);
+}
+.canvas-frame {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(120% 80% at 50% 0%, rgba(201, 162, 75, 0.06), transparent 60%),
+    var(--ink-soft);
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  min-height: 420px;
+  position: relative;
+}
+@media (max-width: 920px) {
+  .studio {
+    grid-template-columns: 1fr;
+  }
+  .studio-panel,
+  .studio-canvas {
+    position: static;
+    max-height: none;
+  }
 }
 .topbar {
   display: flex;

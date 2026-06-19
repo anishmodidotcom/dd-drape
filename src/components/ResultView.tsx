@@ -33,8 +33,20 @@ interface JobView {
 
 const MEDIA_MAX = 560;
 
-export function ResultView({ id }: { id: string }) {
+export function ResultView({
+  id,
+  onJob,
+  onReset,
+}: {
+  id: string;
+  /** When embedded in the Studio canvas, route new jobs (regenerate/video) in-place instead of
+   * navigating, so the whole flow stays on one screen. */
+  onJob?: (id: string) => void;
+  /** "Shoot again" returns to the composer with the draft intact. */
+  onReset?: () => void;
+}) {
   const router = useRouter();
+  const goJob = (jobId: string) => (onJob ? onJob(jobId) : router.push(`/app/shots/${jobId}`));
   const toast = useToast();
   const [job, setJob] = useState<JobView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -87,7 +99,7 @@ export function ResultView({ id }: { id: string }) {
     setBusy(false);
     if (res.status === 402) return toast("Not enough credits to regenerate.", "error");
     if (!res.ok) return toast("Regeneration failed.", "error");
-    router.push(`/app/shots/${j.jobId}`);
+    goJob(j.jobId);
   }
 
   async function recover() {
@@ -120,7 +132,7 @@ export function ResultView({ id }: { id: string }) {
     if (res.status === 402) return toast("Not enough credits for video.", "error");
     if (res.status === 503) return toast(j.message ?? "Video is in beta and temporarily unavailable.", "info");
     if (!res.ok) return toast("Could not start video.", "error");
-    router.push(`/app/shots/${j.jobId}`);
+    goJob(j.jobId);
   }
 
   // MN8: trigger a real file download (not open-in-tab) via blob. Resolves a FRESH signed URL at
@@ -137,7 +149,7 @@ export function ResultView({ id }: { id: string }) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `drape-${job.id}.${isVideo ? "mp4" : "png"}`;
+      a.download = `oviya-${job.id}.${isVideo ? "mp4" : "png"}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -179,7 +191,7 @@ export function ResultView({ id }: { id: string }) {
           <p style={{ margin: 0 }}>{job.blocked}</p>
           <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>No credits were charged.</p>
         </div>
-        <button className="btn btn-solid" style={{ width: "fit-content" }} onClick={() => router.push("/app/new")}>Try a different shot</button>
+        <button className="btn btn-solid" style={{ width: "fit-content" }} onClick={() => (onReset ? onReset() : router.push("/app/new"))}>Try a different shoot</button>
       </div>
     );
   }
@@ -197,7 +209,7 @@ export function ResultView({ id }: { id: string }) {
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button className="btn btn-primary" disabled={busy} onClick={regenerate}>Try again</button>
-          <button className="btn btn-ghost" onClick={() => router.push("/app/new")}>New shot</button>
+          <button className="btn btn-ghost" onClick={() => (onReset ? onReset() : router.push("/app/new"))}>New shoot</button>
         </div>
       </div>
     );
@@ -276,8 +288,12 @@ export function ResultView({ id }: { id: string }) {
         <button className="btn btn-solid" disabled={downloading || !job.resultPath} onClick={download}>
           {downloading ? "Preparing..." : "Download"}
         </button>
-        <button className="btn btn-ghost" disabled={busy} onClick={regenerate}>Regenerate</button>
-        <button className="btn btn-ghost" onClick={() => router.push("/app/shots")}>My shots</button>
+        <button className="btn btn-ghost" disabled={busy} onClick={regenerate}>Reshoot</button>
+        {onReset ? (
+          <button className="btn btn-ghost" onClick={onReset}>New shoot</button>
+        ) : (
+          <button className="btn btn-ghost" onClick={() => router.push("/app/shots")}>Contact sheet</button>
+        )}
       </div>
 
       {/* Generate video from this still */}
