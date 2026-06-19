@@ -44,10 +44,16 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     const supabase = getBrowserClient();
     try {
       if (isSignup) {
-        const { data, error } = await supabase.auth.signUp({ email, password });
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          // Land the confirmation link on our callback route, which exchanges the code, establishes
+          // the session, and shows a branded welcome (never a dead page).
+          options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
+        });
         if (error) throw error;
         if (!data.session) {
-          setNotice("Check your email to confirm your account, then sign in.");
+          setNotice("Check your inbox to confirm your email. The link brings you right back to step on set.");
           setBusy(false);
           return;
         }
@@ -69,7 +75,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
     <form onSubmit={onSubmit} noValidate style={{ display: "grid", gap: 16 }}>
       <div>
         <label className="label" htmlFor="email">Email</label>
-        <input id="email" className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@studio.com" aria-invalid={!!errors.email} />
+        <input id="email" className="input" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@email.com" aria-invalid={!!errors.email} />
         {errors.email && <p style={errStyle}>{errors.email}</p>}
       </div>
 
