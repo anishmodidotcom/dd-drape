@@ -1,7 +1,7 @@
 import { NewShotWizard } from "@/components/NewShotWizard";
 import { listModels } from "@/lib/models/data";
 
-export const metadata = { title: "New shot. Drape." };
+export const metadata = { title: "On Set. Oviya Studio." };
 
 export default async function NewShotPage() {
   const models = await listModels();
@@ -12,7 +12,7 @@ export default async function NewShotPage() {
   return (
     <>
       <p className="eyebrow" style={{ marginBottom: 8 }}>
-        New shot
+        On set
       </p>
       <NewShotWizard savedModels={savedModels} />
     </>

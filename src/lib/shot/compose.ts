@@ -189,7 +189,7 @@ export function redPolicy(spec: ShotSpec, tier: Tier): RedPolicy {
     return {
       blocked: true,
       message:
-        "Drape enhances and places your piece, it does not fabricate facet-level detail. For a hero macro of this item, we recommend uploading a real macro shot to enhance.",
+        "Oviya enhances and places your piece, it does not fabricate facet-level detail. For a hero macro of this item, we recommend uploading a real macro shot to enhance.",
     };
   }
   return { blocked: false };

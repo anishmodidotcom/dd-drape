@@ -23,7 +23,7 @@ export function GetCreditsModal() {
               bulk pricing for your catalogue? Contact us and we will set you up.
             </p>
             <div style={{ display: "flex", gap: 10 }}>
-              <a className="btn btn-primary" href="mailto:hello@drape.studio?subject=Drape%20credits">
+              <a className="btn btn-primary" href="mailto:hello@drape.studio?subject=Oviya%20Studio%20credits">
                 Contact us
               </a>
               <button className="btn btn-ghost" onClick={() => setOpen(false)}>Close</button>

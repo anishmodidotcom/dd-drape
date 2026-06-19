@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { getUser } from "@/lib/supabase/server";
 import { BeforeAfter } from "@/components/BeforeAfter";
+import { Wordmark } from "@/components/ui/Wordmark";
 
 export const metadata = {
-  title: "Drape. Your product. Your model. Your shot.",
-  description: "Premium fashion photography, generated.",
+  title: "Oviya Studio. Your product. Your muse. Your shoot.",
+  description: "Every product, a work of art.",
 };
 
 const SB = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -26,7 +27,7 @@ const GALLERY = [
 ];
 
 const FAQ = [
-  { q: "Will it keep my exact print and colour?", a: "Yes. Drape is reference-locked: your uploaded product is the anchor for every shot, and a fidelity check catches any drift before delivery. We enhance and place your piece, we never reinvent it." },
+  { q: "Will it keep my exact print and colour?", a: "Yes. Oviya is reference-locked: your uploaded product is the anchor for every shoot, and a fidelity check catches any drift before delivery. We enhance and place your piece, we never reinvent it." },
   { q: "Can I use the images commercially?", a: "The shots you generate are yours to use for your catalog, ads, and social. You are responsible for the rights to the product photos you upload." },
   { q: "Are these AI generated?", a: "Yes, and we are transparent about it. Every output carries provenance metadata and an optional visible label, in line with AI-content disclosure norms." },
   { q: "How good is the quality?", a: "Output is editorial-grade and natural, no plastic skin or melting hands. Hero quality uses a premium model for maximum fidelity." },
@@ -35,20 +36,20 @@ const FAQ = [
 export default async function Home() {
   const user = await getUser();
   const cta = user
-    ? { href: "/app/new", label: "Go to studio" }
-    : { href: "/signup", label: "Try Drape free" };
+    ? { href: "/app/new", label: "Enter the studio" }
+    : { href: "/signup", label: "Try Oviya free" };
 
   return (
     <main style={{ minHeight: "100vh" }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "20px clamp(20px, 5vw, 56px)", maxWidth: 1200, margin: "0 auto" }}>
-        <span className="eyebrow" style={{ color: "var(--porcelain)" }}>Drape</span>
+        <Wordmark size="sm" />
         <nav style={{ display: "flex", gap: 12 }}>
           {user ? (
-            <Link href="/app/new" className="btn btn-primary" style={{ padding: "9px 16px" }}>Go to studio</Link>
+            <Link href="/app/new" className="btn btn-primary" style={{ padding: "9px 16px" }}>Enter the studio</Link>
           ) : (
             <>
               <Link href="/login" className="btn btn-ghost-dark" style={{ padding: "9px 16px" }}>Sign in</Link>
-              <Link href="/signup" className="btn btn-primary" style={{ padding: "9px 16px" }}>Try Drape free</Link>
+              <Link href="/signup" className="btn btn-primary" style={{ padding: "9px 16px" }}>Try Oviya free</Link>
             </>
           )}
         </nav>
@@ -58,11 +59,11 @@ export default async function Home() {
       <section style={{ display: "grid", gridTemplateColumns: "1.1fr 0.9fr", gap: 40, alignItems: "center", padding: "clamp(24px, 6vw, 72px) clamp(20px, 5vw, 56px)", maxWidth: 1200, margin: "0 auto" }} className="hero-grid">
         <div>
           <h1 style={{ fontSize: "clamp(40px, 7vw, 68px)", lineHeight: 1.03, maxWidth: "16ch" }}>
-            Your product. Your model. Your{" "}
-            <span style={{ background: "var(--gradient-brand)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>shot.</span>
+            Your product. Your muse. Your{" "}
+            <span style={{ background: "var(--gradient-brand)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>shoot.</span>
           </h1>
           <p style={{ fontSize: 20, color: "var(--fog)", marginTop: 22, maxWidth: "46ch" }}>
-            Premium fashion photography, generated. Upload your real apparel or jewellery, direct the exact shot, and keep every detail of the actual product.
+            Every product, a work of art. Upload your real apparel or jewellery, direct the exact shoot, and keep every detail of the actual product.
           </p>
           <div style={{ marginTop: 32, display: "flex", gap: 12, flexWrap: "wrap" }}>
             <Link href={cta.href} className="btn btn-primary" style={{ fontSize: 16, padding: "14px 26px" }}>{cta.label}</Link>
@@ -73,7 +74,7 @@ export default async function Home() {
         {SB && (
           <div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={preset("presets/festive-editorial.png")} alt="Drape sample output" loading="eager" style={{ width: "100%", borderRadius: 16, border: "1px solid var(--line)", display: "block" }} />
+            <img src={preset("presets/festive-editorial.png")} alt="Oviya sample shoot" loading="eager" style={{ width: "100%", borderRadius: 16, border: "1px solid var(--line)", display: "block" }} />
           </div>
         )}
       </section>
@@ -84,7 +85,7 @@ export default async function Home() {
           <p className="eyebrow" style={{ color: "var(--saffron)", marginBottom: 10 }}>Will it keep my exact product?</p>
           <h2 style={{ fontSize: "clamp(26px, 4vw, 36px)", marginBottom: 18 }}>Drag to reveal</h2>
           <div style={{ maxWidth: 460 }}>
-            <BeforeAfter before={preset("base/model.png")} after={preset("presets/festive-editorial.png")} alt="Drape direction" />
+            <BeforeAfter before={preset("base/model.png")} after={preset("presets/festive-editorial.png")} alt="Oviya direction" />
           </div>
         </section>
       )}
@@ -92,11 +93,11 @@ export default async function Home() {
       {/* Output gallery */}
       {SB && (
         <section style={{ padding: "24px clamp(20px, 5vw, 56px) 56px", maxWidth: 1200, margin: "0 auto" }}>
-          <h2 style={{ fontSize: "clamp(26px, 4vw, 36px)", marginBottom: 18 }}>Real Drape output</h2>
+          <h2 style={{ fontSize: "clamp(26px, 4vw, 36px)", marginBottom: 18 }}>Real Oviya output</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
             {GALLERY.map((g) => (
               // eslint-disable-next-line @next/next/no-img-element
-              <img key={g} src={preset(g)} alt="Drape output" loading="lazy" style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover", borderRadius: 12, border: "1px solid var(--line)", display: "block" }} />
+              <img key={g} src={preset(g)} alt="Oviya output" loading="lazy" style={{ width: "100%", aspectRatio: "4/5", objectFit: "cover", borderRadius: 12, border: "1px solid var(--line)", display: "block" }} />
             ))}
           </div>
         </section>
@@ -139,7 +140,7 @@ export default async function Home() {
       </section>
 
       <footer style={{ borderTop: "1px solid var(--line-soft)", padding: "28px clamp(20px, 5vw, 56px)", color: "var(--fog)", fontSize: 13, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 12, maxWidth: 1200, margin: "0 auto" }}>
-        <span>Drape. Premium fashion photography, generated.</span>
+        <span>Oviya Studio. Every product, a work of art.</span>
         <span>Images are AI generated and carry content provenance.</span>
       </footer>
     </main>

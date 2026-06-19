@@ -4,6 +4,7 @@ import { getUser } from "@/lib/supabase/server";
 import { getBalance } from "@/lib/data";
 import { AppNav } from "@/components/AppNav";
 import { SignOutButton } from "@/components/SignOutButton";
+import { Wordmark } from "@/components/ui/Wordmark";
 
 // Authenticated app shell (Section 7.3): left rail nav + top bar with credit balance and account.
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
@@ -14,12 +15,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="shell">
       <aside className="rail">
-        <Link href="/" className="eyebrow" style={{ color: "var(--porcelain)", opacity: 0.9 }}>
-          Drape
+        <Link href="/" style={{ marginBottom: 6 }}>
+          <Wordmark size="sm" />
         </Link>
         <AppNav />
         <div className="rail-tagline" style={{ marginTop: "auto", fontSize: 12, opacity: 0.6 }}>
-          Your product. Your model. Your shot.
+          Your product. Your muse. Your shoot.
         </div>
       </aside>
       <div className="content">

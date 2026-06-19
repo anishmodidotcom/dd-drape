@@ -1,25 +1,57 @@
-/* Drape brand tokens (Section 1). One dark editorial system across marketing, auth, and studio. */
+/* Oviya Studio design system. One dark cinematic editorial system across marketing, auth, and
+ * studio. Near-black layered surfaces (never pure black), one committed accent (temple gold),
+ * off-white body text (never pure white), serif display + grotesk body, glass on overlays, film
+ * grain. Token NAMES preserved for continuity; values repointed to the Oviya palette. */
 :root {
-  --ink: #161616;
-  --porcelain: #faf7f2;
-  --saffron: #ff6a3d;
-  --orchid: #c44bc9;
-  --fog: #9b9b9b;
-  --ink-soft: #2a2a2a;
-  --success: #2e9e5b;
-  --caution: #e8a33d;
-  --danger: #d9483b;
+  /* Base canvas + 4 elevation levels (never pure black). */
+  --ink: #0b0b0f; /* page base */
+  --ink-soft: #16161b; /* rail / inset */
+  --surface: #121217; /* elevation 1 (cards) */
+  --surface-2: #1a1a21; /* elevation 2 (menus, popovers) */
+  --surface-3: #232330; /* elevation 3 (raised / active) */
 
-  /* Dark-studio surfaces + hairlines (derived from ink). */
-  --surface: #1c1c1c;
-  --surface-2: #242424;
-  --line: rgba(255, 255, 255, 0.12);
-  --line-soft: rgba(255, 255, 255, 0.07);
+  /* Text (never pure white). */
+  --porcelain: #f1f5f9; /* primary body/heading */
+  --text-soft: #e0e0e0; /* secondary body */
+  --fog: #8a8a93; /* muted / captions */
 
-  --gradient-brand: linear-gradient(135deg, #ff6a3d 0%, #c44bc9 100%);
+  /* One committed accent: temple gold / champagne. */
+  --accent: #c9a24b;
+  --accent-soft: #d9b768;
+  --accent-deep: #a8842f;
+  --saffron: var(--accent); /* legacy alias -> single accent */
+  --orchid: var(--accent); /* legacy alias -> single accent */
 
-  --radius: 12px;
-  --radius-sm: 9px;
+  --success: #4cae7a;
+  --caution: #d9b768;
+  --danger: #d9655a;
+
+  /* Hairlines. */
+  --line: rgba(255, 255, 255, 0.1);
+  --line-soft: rgba(255, 255, 255, 0.06);
+  --line-accent: color-mix(in srgb, var(--accent) 45%, transparent);
+
+  /* A restrained gold gradient (used sparingly; the system is mostly flat dark). */
+  --gradient-brand: linear-gradient(135deg, #d9b768 0%, #c9a24b 50%, #a8842f 100%);
+
+  /* Glass (overlays only). */
+  --glass-bg: color-mix(in srgb, var(--ink) 72%, transparent);
+  --glass-line: rgba(255, 255, 255, 0.12);
+
+  --radius: 14px;
+  --radius-sm: 10px;
+  --radius-lg: 20px;
+
+  /* Elevation shadows. */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45);
+  --shadow-3: 0 18px 50px rgba(0, 0, 0, 0.55);
+
+  /* Motion tokens (spring-ish; transform+opacity only). */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast: 0.16s;
+  --dur: 0.28s;
+  --dur-entrance: 0.4s;
 
   --font-display: var(--font-fraunces), "Playfair Display", Georgia, serif;
   --font-ui: var(--font-inter), system-ui, sans-serif;
@@ -81,7 +113,9 @@ a {
 }
 .btn-primary {
   background: var(--gradient-brand);
-  color: #fff;
+  color: #1a1407;
+  font-weight: 600;
+  box-shadow: var(--shadow-1);
 }
 .btn-solid {
   background: var(--porcelain);
@@ -510,11 +544,45 @@ textarea.input {
   }
 }
 
+/* ---------- Glass (overlays / sheets only) ---------- */
+.glass {
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  border: 1px solid var(--glass-line);
+}
+
+/* ---------- Film grain overlay ---------- */
+.grain {
+  pointer-events: none;
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  opacity: 0.09;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---------- Accent text + display ---------- */
+.accent {
+  color: var(--accent);
+}
+.display {
+  font-family: var(--font-display);
+}
+.serif-italic {
+  font-family: var(--font-display);
+  font-style: italic;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::after,
   *::before {
     animation-duration: 0.001ms !important;
     transition-duration: 0.001ms !important;
+  }
+  .grain {
+    display: none;
   }
 }
