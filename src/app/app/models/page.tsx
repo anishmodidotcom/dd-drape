@@ -3,7 +3,7 @@ import { CreateModelPanel } from "@/components/CreateModelPanel";
 import { SmartImage } from "@/components/SmartImage";
 import { MODEL_ANGLES, MODEL_CREATE_CREDITS } from "@/lib/models/schema";
 
-export const metadata = { title: "Models. Drape." };
+export const metadata = { title: "Your Muses. Oviya Studio." };
 
 export default async function ModelsPage() {
   const models = await listModels();
@@ -11,10 +11,10 @@ export default async function ModelsPage() {
   return (
     <>
       <div style={{ marginBottom: 8 }}>
-        <p className="eyebrow">Models studio</p>
-        <h1 style={{ fontSize: 32 }}>Your models</h1>
+        <p className="eyebrow">Casting board</p>
+        <h1 style={{ fontSize: 32 }}>Your muses</h1>
         <p className="muted" style={{ maxWidth: "52ch" }}>
-          Create a model once, then reuse the same face and body across your whole catalog.
+          Cast a muse once, then reuse the same face and body across your whole catalog.
         </p>
       </div>
 

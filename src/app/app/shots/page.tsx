@@ -4,7 +4,7 @@ import { SmartImage } from "@/components/SmartImage";
 import { TierBadge } from "@/components/TierBadge";
 import type { Tier } from "@/lib/engine/tier";
 
-export const metadata = { title: "My shots. Drape." };
+export const metadata = { title: "Contact Sheet. Oviya Studio." };
 
 export default async function MyShotsPage() {
   const jobs = await getJobs(60);
@@ -12,17 +12,17 @@ export default async function MyShotsPage() {
   return (
     <>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
-        <h1 style={{ fontSize: 32 }}>My shots</h1>
-        <Link href="/app/new" className="btn btn-primary">New shot</Link>
+        <h1 style={{ fontSize: 32 }}>Contact sheet</h1>
+        <Link href="/app/new" className="btn btn-primary">New shoot</Link>
       </div>
 
       {jobs.length === 0 ? (
         <div className="card" style={{ textAlign: "center", padding: 48 }}>
-          <p style={{ fontSize: 18, fontFamily: "var(--font-display)" }}>No shots yet</p>
+          <p style={{ fontSize: 18, fontFamily: "var(--font-display)" }}>Your contact sheet is empty</p>
           <p className="muted" style={{ marginBottom: 16 }}>
-            Upload a product and generate your first shot.
+            Upload a product and shoot your first look.
           </p>
-          <Link href="/app/new" className="btn btn-primary">Start a shot</Link>
+          <Link href="/app/new" className="btn btn-primary">Step onto set</Link>
         </div>
       ) : (
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 14 }}>

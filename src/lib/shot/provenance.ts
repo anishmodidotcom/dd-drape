@@ -28,7 +28,7 @@ export interface ProvenanceInput {
 export function buildProvenanceManifest(input: ProvenanceInput): ProvenanceManifest {
   return {
     "@context": "https://c2pa.org/specifications",
-    claim_generator: "Drape/1.0",
+    claim_generator: "Oviya Studio/1.0",
     format: input.outputFormat,
     created_at: input.createdAt ?? new Date().toISOString(),
     assertions: [
@@ -41,7 +41,7 @@ export function buildProvenanceManifest(input: ProvenanceInput): ProvenanceManif
               action: "c2pa.created",
               digitalSourceType:
                 "http://cv.iptc.org/newscodes/digitalsourcetype/trainedAlgorithmicMedia",
-              softwareAgent: "Drape",
+              softwareAgent: "Oviya Studio",
             },
           ],
         },

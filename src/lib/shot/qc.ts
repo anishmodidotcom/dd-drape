@@ -26,7 +26,7 @@ export const TIER_PRESENTATION: Record<Tier, TierPresentation> = {
     badge: "Enhanced",
     tone: "danger",
     headline: "Enhanced and placed",
-    body: "Drape enhances and places your piece. For facet-level hero detail, we recommend a macro shot. Please review carefully.",
+    body: "Oviya enhances and places your piece. For facet-level hero detail, we recommend a macro shot. Please review carefully.",
   },
 };
 

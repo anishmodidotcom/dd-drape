@@ -24,8 +24,8 @@ describe("provenance manifest (C2PA-style, compliance)", () => {
     expect((gen?.data as Record<string, unknown>).aiGenerated).toBe(true);
   });
 
-  it("uses the Drape claim generator and a timestamp", () => {
-    expect(m.claim_generator).toBe("Drape/1.0");
+  it("uses the Oviya Studio claim generator and a timestamp", () => {
+    expect(m.claim_generator).toBe("Oviya Studio/1.0");
     expect(() => new Date(m.created_at).toISOString()).not.toThrow();
   });
 });

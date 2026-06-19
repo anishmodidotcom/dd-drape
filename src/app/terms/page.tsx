@@ -1,14 +1,15 @@
 import Link from "next/link";
+import { Wordmark } from "@/components/ui/Wordmark";
 
-export const metadata = { title: "Terms. Drape." };
+export const metadata = { title: "Terms. Oviya Studio." };
 
 export default function TermsPage() {
   return (
     <main style={{ maxWidth: 760, margin: "0 auto", padding: "48px clamp(20px, 5vw, 56px) 80px" }}>
-      <Link href="/" className="eyebrow" style={{ display: "block", marginBottom: 20 }}>Drape</Link>
+      <Link href="/" style={{ display: "inline-block", marginBottom: 20 }}><Wordmark size="sm" /></Link>
       <h1 style={{ fontSize: 36, marginBottom: 16 }}>Terms of use</h1>
       <p className="muted">
-        Drape generates fashion imagery from product photos you upload. You confirm you hold the
+        Oviya Studio generates fashion imagery from product photos you upload. You confirm you hold the
         rights to the images you upload, and you own the shots you generate for your commercial use.
         Outputs are AI generated and carry content provenance. This is an early product; the service
         is provided as is while we are in beta. Full terms will be published before paid plans launch.

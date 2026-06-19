@@ -1,8 +1,10 @@
+// TODO(final-pass video rebuild): this ffmpeg multi-clip stitcher is intentionally retained but
+// NOT yet wired into any code path. It belongs to the deferred video rebuild (multi-shot
+// sequences), which will connect it to the worker. Until then it is dormant by design, not dead.
+//
 // ffmpeg clip stitching for longer video sequences. Models drift after ~10s, so we generate
 // short clips (5-8s) and concatenate them here in the worker (Vercel cannot run ffmpeg).
-//
-// Used when a video job's payload carries multiple clip URLs (a multi-shot sequence). The single
-// clip path does not need this. Railway provisions ffmpeg via nixpacks.toml.
+// Railway provisions ffmpeg via nixpacks.toml.
 
 import { spawn } from "node:child_process";
 import { writeFile, mkdtemp, rm } from "node:fs/promises";

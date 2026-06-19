@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BeforeAfter } from "./BeforeAfter";
 import { LoadingStudio } from "./LoadingStudio";
+import { SmartImage } from "./SmartImage";
 import { TierBadge } from "./TierBadge";
 import { CustomSelect } from "./ui/CustomSelect";
 import { useToast } from "./ui/Toast";
@@ -17,8 +18,9 @@ interface JobView {
   status: "queued" | "running" | "done" | "failed";
   tier: Tier | null;
   qcStatus: "none" | "pending" | "approved";
-  resultUrl: string | null;
-  beforeUrl: string | null;
+  fidelity: "verified" | "unverified" | "failed" | null;
+  resultPath: string | null;
+  beforePath: string | null;
   blocked: string | null;
   failed: boolean;
   failureReason: string | null;
@@ -31,8 +33,20 @@ interface JobView {
 
 const MEDIA_MAX = 560;
 
-export function ResultView({ id }: { id: string }) {
+export function ResultView({
+  id,
+  onJob,
+  onReset,
+}: {
+  id: string;
+  /** When embedded in the Studio canvas, route new jobs (regenerate/video) in-place instead of
+   * navigating, so the whole flow stays on one screen. */
+  onJob?: (id: string) => void;
+  /** "Shoot again" returns to the composer with the draft intact. */
+  onReset?: () => void;
+}) {
   const router = useRouter();
+  const goJob = (jobId: string) => (onJob ? onJob(jobId) : router.push(`/app/shots/${jobId}`));
   const toast = useToast();
   const [job, setJob] = useState<JobView | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -85,7 +99,7 @@ export function ResultView({ id }: { id: string }) {
     setBusy(false);
     if (res.status === 402) return toast("Not enough credits to regenerate.", "error");
     if (!res.ok) return toast("Regeneration failed.", "error");
-    router.push(`/app/shots/${j.jobId}`);
+    goJob(j.jobId);
   }
 
   async function recover() {
@@ -116,21 +130,26 @@ export function ResultView({ id }: { id: string }) {
     const j = await res.json();
     setBusy(false);
     if (res.status === 402) return toast("Not enough credits for video.", "error");
+    if (res.status === 503) return toast(j.message ?? "Video is in beta and temporarily unavailable.", "info");
     if (!res.ok) return toast("Could not start video.", "error");
-    router.push(`/app/shots/${j.jobId}`);
+    goJob(j.jobId);
   }
 
-  // MN8: trigger a real file download (not open-in-tab) via blob.
+  // MN8: trigger a real file download (not open-in-tab) via blob. Resolves a FRESH signed URL at
+  // click time (via /api/media) so a long-open page still downloads (audit item 5).
   async function download() {
-    if (!job?.resultUrl) return;
+    if (!job?.resultPath) return;
     setDownloading(true);
     try {
-      const res = await fetch(job.resultUrl);
+      const media = await fetch(`/api/media?path=${encodeURIComponent(job.resultPath)}`);
+      if (!media.ok) throw new Error("expired");
+      const { url: signed } = await media.json();
+      const res = await fetch(signed);
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `drape-${job.id}.${isVideo ? "mp4" : "png"}`;
+      a.download = `oviya-${job.id}.${isVideo ? "mp4" : "png"}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -172,7 +191,7 @@ export function ResultView({ id }: { id: string }) {
           <p style={{ margin: 0 }}>{job.blocked}</p>
           <p className="muted" style={{ fontSize: 13, marginTop: 8 }}>No credits were charged.</p>
         </div>
-        <button className="btn btn-solid" style={{ width: "fit-content" }} onClick={() => router.push("/app/new")}>Try a different shot</button>
+        <button className="btn btn-solid" style={{ width: "fit-content" }} onClick={() => (onReset ? onReset() : router.push("/app/new"))}>Try a different shoot</button>
       </div>
     );
   }
@@ -190,7 +209,7 @@ export function ResultView({ id }: { id: string }) {
         </div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
           <button className="btn btn-primary" disabled={busy} onClick={regenerate}>Try again</button>
-          <button className="btn btn-ghost" onClick={() => router.push("/app/new")}>New shot</button>
+          <button className="btn btn-ghost" onClick={() => (onReset ? onReset() : router.push("/app/new"))}>New shoot</button>
         </div>
       </div>
     );
@@ -209,26 +228,34 @@ export function ResultView({ id }: { id: string }) {
       </div>
       <p className="muted" style={{ marginTop: -8 }}>{present.body}</p>
 
-      {/* B1: media renders large with real dimensions (no fit-content collapse). */}
+      {/* B1: large media, real dimensions. Item 5: rendered from paths via SmartImage / smart
+          BeforeAfter so signed URLs auto-refresh and never break on expiry. */}
       <div style={{ position: "relative", width: "100%", maxWidth: MEDIA_MAX }}>
         {isVideo ? (
-          job.resultUrl && (
-            <video src={job.resultUrl} controls playsInline style={{ width: "100%", display: "block", borderRadius: 14, border: "1px solid var(--line)" }} />
+          job.resultPath && (
+            <SmartImage path={job.resultPath} alt="generated video" isVideo style={{ width: "100%", display: "block", borderRadius: 14, border: "1px solid var(--line)" }} />
           )
-        ) : job.beforeUrl && job.resultUrl ? (
-          <BeforeAfter before={job.beforeUrl} after={job.resultUrl} alt="your product" />
+        ) : job.beforePath && job.resultPath ? (
+          <BeforeAfter beforePath={job.beforePath} afterPath={job.resultPath} alt="your product" />
         ) : (
-          job.resultUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={job.resultUrl} alt="generated shot" style={{ width: "100%", display: "block", borderRadius: 14, border: "1px solid var(--line)" }} />
+          job.resultPath && (
+            <SmartImage path={job.resultPath} alt="generated shot" style={{ width: "100%", display: "block", borderRadius: 14, border: "1px solid var(--line)" }} />
           )
         )}
-        {showLabel && job.resultUrl && (
+        {showLabel && job.resultPath && (
           <span className="chip" style={{ position: "absolute", bottom: 12, left: 12, background: "rgba(0,0,0,0.62)", color: "#fff", borderColor: "transparent" }}>
             Created with AI
           </span>
         )}
       </div>
+
+      {/* Item 4: be honest about fidelity verification status. */}
+      {job.fidelity === "unverified" && (
+        <p className="muted" style={{ fontSize: 13, margin: 0 }}>
+          Fidelity check did not run on this shot, so it is unverified. Please review the product
+          details against your original before publishing.
+        </p>
+      )}
 
       <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 14 }}>
         <input type="checkbox" checked={showLabel} onChange={(e) => setShowLabel(e.target.checked)} />
@@ -258,11 +285,15 @@ export function ResultView({ id }: { id: string }) {
 
       {/* Actions */}
       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-        <button className="btn btn-solid" disabled={downloading || !job.resultUrl} onClick={download}>
+        <button className="btn btn-solid" disabled={downloading || !job.resultPath} onClick={download}>
           {downloading ? "Preparing..." : "Download"}
         </button>
-        <button className="btn btn-ghost" disabled={busy} onClick={regenerate}>Regenerate</button>
-        <button className="btn btn-ghost" onClick={() => router.push("/app/shots")}>My shots</button>
+        <button className="btn btn-ghost" disabled={busy} onClick={regenerate}>Reshoot</button>
+        {onReset ? (
+          <button className="btn btn-ghost" onClick={onReset}>New shoot</button>
+        ) : (
+          <button className="btn btn-ghost" onClick={() => router.push("/app/shots")}>Contact sheet</button>
+        )}
       </div>
 
       {/* Generate video from this still */}

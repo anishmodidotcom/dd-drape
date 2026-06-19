@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/supabase/server";
 import { getJob } from "@/lib/engine/jobs";
-import { signedUrl } from "@/lib/engine/storage";
 import { RED_BLOCK_PREFIX, FIDELITY_FAIL_PREFIX } from "@/lib/engine/run";
 
 // Turn an internal last_error into a clean, human failure reason (no codes / vendor names).
@@ -36,27 +35,23 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const meta = (job.payload?.meta ?? {}) as Record<string, unknown>;
   const refPaths = (meta.referenceImagePaths as string[] | undefined) ?? [];
 
-  const [resultUrl, beforeUrl, thumbUrl] = await Promise.all([
-    job.result_ref ? signedUrl(job.result_ref).catch(() => null) : Promise.resolve(null),
-    refPaths[0] ? signedUrl(refPaths[0]).catch(() => null) : Promise.resolve(null),
-    job.thumb_ref ? signedUrl(job.thumb_ref).catch(() => null) : Promise.resolve(null),
-  ]);
-
   const blocked = job.last_error?.startsWith(RED_BLOCK_PREFIX)
     ? job.last_error.slice(RED_BLOCK_PREFIX.length)
     : null;
 
+  // Audit item 5: return the storage PATHS, so the client renders them via SmartImage and the
+  // signed URL auto-refreshes on expiry (previews never break on a long-open page).
   return NextResponse.json({
     id: job.id,
     type: job.type,
     status: job.status,
     tier: job.tier,
     qcStatus: job.qc_status,
+    fidelity: (meta.fidelity as string | undefined) ?? null,
     estimatedCredits: job.estimated_credits,
     actualCredits: job.actual_credits,
-    resultUrl,
-    beforeUrl,
-    thumbUrl,
+    resultPath: job.result_ref,
+    beforePath: refPaths[0] ?? null,
     blocked,
     failed: job.status === "failed" && !blocked,
     failureReason: job.status === "failed" && !blocked ? humanFailure(job.last_error) : null,

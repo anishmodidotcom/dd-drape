@@ -1,7 +1,7 @@
 import { getBalance, getTransactions, type CreditTxn } from "@/lib/data";
 import { GetCreditsModal } from "@/components/GetCreditsModal";
 
-export const metadata = { title: "Credits. Drape." };
+export const metadata = { title: "Credits. Oviya Studio." };
 
 const KIND_LABEL: Record<string, string> = {
   grant: "Added",

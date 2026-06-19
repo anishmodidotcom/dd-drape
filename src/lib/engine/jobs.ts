@@ -34,7 +34,11 @@ export interface JobRow {
   updated_at: string;
 }
 
+export type FidelityStatus = "verified" | "unverified" | "failed";
+
 export interface CreateJobInput {
+  /** Pre-generated id so credits can be RESERVED before the job row is created (no orphan rows). */
+  id?: string;
   userId: string;
   userEmail?: string | null;
   // Engine NEED for product jobs; also "model/create" for Models studio jobs.
@@ -52,6 +56,7 @@ export async function createJob(input: CreateJobInput): Promise<JobRow> {
   const { data, error } = await admin
     .from("drape_jobs")
     .insert({
+      ...(input.id ? { id: input.id } : {}),
       tenant_id: input.userId, // tenant defaults to user today; room for orgs later
       user_id: input.userId,
       user_email: input.userEmail ?? null,
@@ -68,6 +73,20 @@ export async function createJob(input: CreateJobInput): Promise<JobRow> {
     .single();
   if (error) throw new Error(`createJob failed: ${error.message}`);
   return data as unknown as JobRow;
+}
+
+// Records the fidelity-gate outcome on the job payload (verified | unverified | failed) so the
+// result screen can surface "unverified" rather than implying a verified match.
+export async function setJobFidelity(job: JobRow, status: FidelityStatus) {
+  const admin = getAdminClient();
+  const payload = { ...(job.payload ?? {}) } as Record<string, unknown>;
+  const meta = { ...((payload.meta as Record<string, unknown>) ?? {}), fidelity: status };
+  payload.meta = meta;
+  const { error } = await admin
+    .from("drape_jobs")
+    .update({ payload: payload as Json, updated_at: new Date().toISOString() })
+    .eq("id", job.id);
+  if (error) throw new Error(`setJobFidelity failed: ${error.message}`);
 }
 
 export async function listJobs(userId: string, limit = 60): Promise<JobRow[]> {

@@ -18,8 +18,22 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Drape. Your product. Your model. Your shot.",
-  description: "Premium fashion photography, generated.",
+  title: "Oviya Studio. Your product. Your muse. Your shoot.",
+  description:
+    "Every product, a work of art. Oviya Studio turns your product into a high-fashion editorial shoot.",
+  openGraph: {
+    title: "Oviya Studio",
+    description: "Every product, a work of art.",
+    siteName: "Oviya Studio",
+    images: ["/brand/hero-2.png"],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Oviya Studio",
+    description: "Every product, a work of art.",
+    images: ["/brand/hero-2.png"],
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -27,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`${fraunces.variable} ${inter.variable}`}>
       <body>
         <ToastProvider>{children}</ToastProvider>
+        <div className="grain" aria-hidden="true" />
       </body>
     </html>
   );

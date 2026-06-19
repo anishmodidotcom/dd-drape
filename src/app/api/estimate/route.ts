@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/supabase/server";
-import { buildGeneration } from "@/lib/shot/compose";
+import { planRoute } from "@/lib/shot/plan";
 import { estimate } from "@/lib/engine/estimator";
 import type { ShotSpec } from "@/lib/shot/spec";
 
 // POST /api/estimate { spec }
 // Dry-run: returns the chosen need, tier, credit cost, and any RED block, so the review step can
 // show the price and tier badge before the user commits. No spend, no job created.
+// Uses planRoute() - the SAME deterministic routing the real generation uses - so the quoted cost
+// equals the charged cost (one source of truth).
 
 export const runtime = "nodejs";
 
@@ -26,13 +28,13 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const gen = buildGeneration(spec, []);
-    const est = estimate({ need: gen.need, ...gen.estimateExtras });
+    const plan = planRoute(spec);
+    const est = estimate({ need: plan.need, count: 1 });
     return NextResponse.json({
-      need: gen.need,
-      tier: gen.tier,
+      need: plan.need,
+      tier: plan.tier,
       credits: est.credits,
-      blocked: gen.blocked ?? null,
+      blocked: plan.blocked ?? null,
     });
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 400 });

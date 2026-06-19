@@ -3,9 +3,7 @@
 // product is passed as a reference image and the prompt instructs the model to PRESERVE its exact
 // details and never reinvent them.
 
-import type { Need } from "@/lib/engine/registry";
-import { classifyTier, type Tier } from "@/lib/engine/tier";
-import { getFormat } from "./formats";
+import type { Tier } from "@/lib/engine/tier";
 import type { ShotSpec, Category } from "./spec";
 
 // Human-readable fragments for each enum value, for natural prompt language.
@@ -191,71 +189,13 @@ export function redPolicy(spec: ShotSpec, tier: Tier): RedPolicy {
     return {
       blocked: true,
       message:
-        "Drape enhances and places your piece, it does not fabricate facet-level detail. For a hero macro of this item, we recommend uploading a real macro shot to enhance.",
+        "Oviya enhances and places your piece, it does not fabricate facet-level detail. For a hero macro of this item, we recommend uploading a real macro shot to enhance.",
     };
   }
   return { blocked: false };
 }
 
-export interface Generation {
-  need: Need;
-  tier: Tier;
-  /** When set, do not generate: refund and show this message (RED block). */
-  blocked?: string;
-  falInput: Record<string, unknown>;
-  estimateExtras: { count?: number; seconds?: number };
-}
-
-// Choose the model NEED for the still and assemble fal input. referenceUrls are resolved,
-// publicly fetchable URLs (signed Supabase URLs) for the uploaded product images.
-export function buildGeneration(spec: ShotSpec, referenceUrls: string[]): Generation {
-  const tier = classifyTier({
-    category: spec.category,
-    subType: spec.subType,
-    shotType: spec.shotType,
-  });
-
-  const policy = redPolicy(spec, tier);
-  const prompt = buildPrompt(spec);
-
-  // Need selection:
-  //   - quality 'standard' uses the cheapest model (Seedream) for testing / GREEN ecom.
-  //   - quality 'hero' (default for fidelity) uses Nano Banana Pro, reference-locked.
-  //   - background-swap / colour-variant / flat-lay are edits of the uploaded product.
-  const isEdit =
-    spec.shotType === "background-swap" ||
-    spec.shotType === "colour-variant" ||
-    spec.shotType === "flat-lay";
-
-  let need: Need;
-  if (spec.quality === "standard") {
-    need = "image/standard";
-  } else if (isEdit) {
-    need = "image/edit";
-  } else {
-    need = "image/hero";
-  }
-
-  // fal input. Nano Banana Pro / edit accept image_urls (up to 14 references) + prompt.
-  // Seedream standard accepts a prompt and, for reference-locked i2i, image_urls too.
-  const fmt = getFormat(spec.format);
-  const falInput: Record<string, unknown> = {
-    prompt,
-    num_images: 1,
-    output_format: "png",
-    // Output format preset: target dimensions + aspect ratio for the marketplace/social target.
-    image_size: { width: fmt.width, height: fmt.height },
-    aspect_ratio: fmt.ratio === "free" ? undefined : fmt.ratio,
-  };
-  if (referenceUrls.length) {
-    falInput.image_urls = referenceUrls;
-  }
-
-  return {
-    need,
-    tier,
-    blocked: policy.blocked ? policy.message : undefined,
-    falInput,
-    estimateExtras: { count: 1 },
-  };
-}
+// NOTE: the legacy `buildGeneration` (v1 routing + falInput assembly) was removed in the audit-fix
+// pass. Routing/pricing now live in src/lib/shot/plan.ts (planRoute/planNeed), and the actual fal
+// body is assembled by the director (compose -> route). buildPrompt and redPolicy remain in use by
+// the deterministic fallback and the plan.

@@ -126,7 +126,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
         {isSignup ? (
           <>Already have an account? <Link href="/login" style={{ color: "var(--saffron)" }}>Sign in</Link></>
         ) : (
-          <>New to Drape? <Link href="/signup" style={{ color: "var(--saffron)" }}>Create an account</Link></>
+          <>New to Oviya Studio? <Link href="/signup" style={{ color: "var(--saffron)" }}>Create an account</Link></>
         )}
       </p>
     </form>
