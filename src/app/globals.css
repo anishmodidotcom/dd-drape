@@ -736,3 +736,101 @@ textarea.input {
     display: none;
   }
 }
+
+/* ============================ Phase 3: the product surface ============================ */
+/* Top app bar (replaces the left rail so the studio gets the full page). */
+.appshell { min-height: 100vh; display: flex; flex-direction: column; }
+.appbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 18px;
+  padding: 11px clamp(14px, 3vw, 30px);
+  border-bottom: 1px solid var(--border-subtle);
+  background: color-mix(in oklab, var(--surface-base) 84%, transparent);
+  backdrop-filter: blur(14px) saturate(120%);
+}
+.appbar-nav { display: flex; gap: 3px; }
+.appbar-tab {
+  padding: 7px 14px; border-radius: 999px; font-size: 14px; font-weight: 500;
+  color: var(--text-secondary); white-space: nowrap; transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.appbar-tab:hover { color: var(--text-primary); }
+.appbar-tab[data-active="true"] { color: var(--accent-contrast); background: var(--accent-default); }
+.appbar-spacer { margin-left: auto; }
+.appmain { flex: 1; min-width: 0; }
+.page { max-width: 1200px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 40px) 120px; }
+
+/* Mobile: hide top tabs, show a thumb-reachable bottom tab bar. */
+.app-bottomtabs { display: none; }
+@media (max-width: 860px) {
+  .appbar-nav { display: none; }
+  .app-bottomtabs {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    border-top: 1px solid var(--border-subtle);
+    background: color-mix(in oklab, var(--surface-base) 92%, transparent);
+    backdrop-filter: blur(16px); padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+  }
+  .app-bottomtabs a {
+    flex: 1; text-align: center; font-size: 11px; padding: 7px 2px; border-radius: 10px;
+    color: var(--text-muted); display: grid; gap: 3px; justify-items: center;
+  }
+  .app-bottomtabs a[data-active="true"] { color: var(--accent-default); }
+  .app-bottomtabs a span.dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0; }
+  .app-bottomtabs a[data-active="true"] span.dot { opacity: 1; }
+}
+
+/* Full-page studio: canvas hero on the left, control rail on the right. */
+.studio3 { display: grid; grid-template-columns: 1fr 392px; min-height: calc(100vh - 56px); }
+.studio3-canvas {
+  position: relative; min-width: 0; padding: clamp(16px, 2.5vw, 32px);
+  display: flex; flex-direction: column; gap: 18px;
+  background:
+    radial-gradient(130% 90% at 30% 0%, color-mix(in oklab, var(--accent-default) 5%, transparent), transparent 55%),
+    var(--surface-base);
+}
+.studio3-rail {
+  border-left: 1px solid var(--border-subtle);
+  background: var(--surface-raised);
+  display: flex; flex-direction: column; min-height: 0;
+}
+.studio3-railscroll { overflow-y: auto; padding: 20px; display: grid; gap: 22px; align-content: start; flex: 1; scrollbar-width: thin; }
+
+/* Action bar (free brief + chips + shoot). */
+.actionbar3 {
+  display: grid; gap: 12px; padding: 16px clamp(16px, 2.5vw, 24px);
+  border-radius: var(--radius-lg); border: 1px solid var(--border-subtle);
+  background: linear-gradient(180deg, var(--surface-raised), var(--surface-base));
+  box-shadow: var(--shadow-2);
+}
+
+/* Segmented toggle (Basic/Advanced, Draft/Hero). */
+.seg { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--surface-sunken); border: 1px solid var(--border-subtle); }
+.seg button {
+  border: none; background: none; cursor: pointer; font-family: var(--font-ui); font-size: 13px; font-weight: 500;
+  padding: 6px 14px; border-radius: 999px; color: var(--text-muted); transition: color var(--dur-fast), background var(--dur-fast);
+}
+.seg button[data-on="true"] { color: var(--accent-contrast); background: var(--accent-default); }
+
+/* Control panels (accordion sections) in the right rail. */
+.panel { border: 1px solid var(--border-subtle); border-radius: var(--radius); background: var(--surface-base); overflow: hidden; }
+.panel > summary, .panel-head {
+  list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 15px; font-family: var(--font-ui); font-weight: 600; font-size: 14px; color: var(--text-primary);
+}
+.panel > summary::-webkit-details-marker { display: none; }
+.panel > summary .panel-sel { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); font-weight: 400; }
+.panel-body { padding: 4px 15px 16px; display: grid; gap: 12px; }
+.panel-eyebrow { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-default); }
+
+/* Canvas frames + result. */
+.canvas3 {
+  flex: 1; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden;
+  background: var(--surface-raised); display: grid; place-items: center; position: relative; min-height: 380px;
+}
+.shotgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+.tilecard { border: 1px solid var(--border-subtle); border-radius: var(--radius); overflow: hidden; background: var(--surface-raised); transition: border-color var(--dur-fast), box-shadow var(--dur-fast); }
+.tilecard:hover { border-color: var(--border-strong); box-shadow: var(--shadow-2); }
+
+@media (max-width: 980px) {
+  .studio3 { grid-template-columns: 1fr; }
+  .studio3-rail { display: none; }
+}

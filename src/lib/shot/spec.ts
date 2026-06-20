@@ -141,6 +141,15 @@ export type Vibe = (typeof VIBES)[number];
 export type Region = "india" | "global";
 export type Quality = "standard" | "hero";
 
+// Phase 3 advanced-control vocabularies. These map to the engine via the authoritative per-control
+// free-text channel (Phase 2 item 4), so no new engine fields are needed and the director reasons
+// over them directly. Every one also accepts "describe your own".
+export const EXPRESSIONS = ["soft-smile", "neutral", "confident", "candid-laugh", "serene", "intense"] as const;
+export const LENSES = ["35mm-environmental", "50mm-natural", "85mm-portrait", "105mm-compression", "macro"] as const;
+export const CAMERA_ANGLES = ["eye-level", "low-angle", "high-angle", "three-quarter", "profile", "overhead-flatlay"] as const;
+export const DEPTH_OF_FIELD = ["deep-focus", "balanced", "shallow", "ultra-shallow-bokeh"] as const;
+export const GRADES = ["true-to-life", "warm-golden", "cool-editorial", "muted-quiet-luxury", "high-saturation", "black-and-white", "filmic"] as const;
+
 export interface ModelSpec {
   ethnicity?: Ethnicity;
   skinTone?: SkinTone;

@@ -24,7 +24,7 @@ const TYPE_STEPS: [string, string, string][] = [
   ["--step-6", "Atelier", "display 6"],
   ["--step-5", "Oviya", "display 5"],
   ["--step-4", "Every product, a work of art", "display 4"],
-  ["--step-3", "Your product. Your muse.", "display 3"],
+  ["--step-3", "Your product. Your model.", "display 3"],
   ["--step-2", "Styling the shoot", "display 2"],
   ["--step-1", "The intelligence behind Oviya", "heading 1"],
 ];
@@ -112,7 +112,7 @@ export default function DesignPage() {
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px,1fr))", gap: 18, marginTop: 24 }}>
             <VoiceCard family="var(--font-display)" name="Bodoni Moda" role="Editorial display serif" sample="A work of art" />
-            <VoiceCard family="var(--font-ui)" name="Hanken Grotesk" role="Premium grotesk, UI + body" sample="Your product, your muse, your shoot." />
+            <VoiceCard family="var(--font-ui)" name="Hanken Grotesk" role="Premium grotesk, UI + body" sample="Your product, your model, your shoot." />
             <VoiceCard family="var(--font-mono)" name="DM Mono" role="Atelier process + metadata" sample="reading the garment" />
           </div>
         </Section>

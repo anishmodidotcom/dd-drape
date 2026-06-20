@@ -11,7 +11,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           <p className="serif-italic" style={{ fontSize: 26, color: "var(--porcelain)", lineHeight: 1.3 }}>
             Every product, a work of art.
           </p>
-          <p className="muted" style={{ marginTop: 8 }}>Your product. Your muse. Your shoot.</p>
+          <p className="muted" style={{ marginTop: 8 }}>Your product. Your model. Your shoot.</p>
         </div>
       </aside>
       <div style={{ display: "grid", placeItems: "center", padding: 24 }}>

@@ -5,7 +5,7 @@ import { Wordmark } from "@/components/ui/Wordmark";
 import { Reveal } from "@/components/ui/Reveal";
 
 export const metadata = {
-  title: "Oviya Studio. Your product. Your muse. Your shoot.",
+  title: "Oviya Studio. Your product. Your model. Your shoot.",
   description: "Every product, a work of art. Turn your product into a high-fashion editorial shoot.",
 };
 
@@ -38,7 +38,7 @@ const PAIRS = [
 
 const STEPS = [
   { n: "01", t: "Upload your product", d: "A flat-lay, ghost mannequin, or hanger shot of your real piece. It becomes the anchor." },
-  { n: "02", t: "Direct your shoot", d: "Cast a muse, pick an editorial, set the location, posing, and light. Or just describe it." },
+  { n: "02", t: "Direct your shoot", d: "Cast a model, pick an editorial, set the location, posing, and light. Or just describe it." },
   { n: "03", t: "Shoot the look", d: "A premium editorial that keeps every thread, stone, and colour of the real product." },
 ];
 
@@ -74,7 +74,7 @@ export default async function Home() {
         <Reveal>
           <p className="eyebrow accent" style={{ marginBottom: 18 }}>Every product, a work of art</p>
           <h1 style={{ fontSize: "clamp(42px, 7vw, 76px)", lineHeight: 1.02, letterSpacing: "-0.01em" }}>
-            Your product.<br />Your muse.<br />Your{" "}
+            Your product.<br />Your model.<br />Your{" "}
             <span className="serif-italic" style={{ background: "var(--gradient-brand)", WebkitBackgroundClip: "text", backgroundClip: "text", color: "transparent" }}>shoot.</span>
           </h1>
           <p style={{ fontSize: 20, color: "var(--text-soft)", marginTop: 24, maxWidth: "44ch" }}>
@@ -121,8 +121,8 @@ export default async function Home() {
           <img src="/brand/hero-2.png" alt="Oviya campaign" loading="lazy" style={{ width: "100%", display: "block", aspectRatio: "16/9", objectFit: "cover" }} />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(90deg, rgba(11,11,15,0.7) 0%, transparent 60%)", display: "grid", alignItems: "center", padding: "clamp(24px, 6vw, 72px)" }}>
             <Reveal>
-              <h2 className="display" style={{ fontSize: "clamp(26px, 4vw, 48px)", maxWidth: "16ch" }}>One muse, your whole catalogue.</h2>
-              <p style={{ color: "var(--text-soft)", marginTop: 12, maxWidth: "40ch" }}>Cast a face once and reshoot every product on the same muse, on set after set.</p>
+              <h2 className="display" style={{ fontSize: "clamp(26px, 4vw, 48px)", maxWidth: "16ch" }}>One model, your whole catalogue.</h2>
+              <p style={{ color: "var(--text-soft)", marginTop: 12, maxWidth: "40ch" }}>Cast a face once and reshoot every product on the same model, on set after set.</p>
             </Reveal>
           </div>
         </div>

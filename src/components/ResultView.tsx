@@ -1,8 +1,9 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { BeforeAfter } from "./BeforeAfter";
-import { LoadingStudio } from "./LoadingStudio";
+import { AtelierLoader } from "./ui/AtelierLoader";
 import { SmartImage } from "./SmartImage";
 import { TierBadge } from "./TierBadge";
 import { CustomSelect } from "./ui/CustomSelect";
@@ -171,7 +172,7 @@ export function ResultView({
   if (job.status === "queued" || job.status === "running") {
     return (
       <div style={{ display: "grid", gap: 14 }}>
-        <LoadingStudio isVideo={isVideo} />
+        <AtelierLoader title={isVideo ? "Bringing it to life" : "Styling the shoot"} />
         <button className="btn btn-ghost" disabled={busy} onClick={recover} style={{ width: "fit-content" }}>
           {busy ? "Checking..." : "Check status now"}
         </button>
@@ -288,15 +289,31 @@ export function ResultView({
         <button className="btn btn-solid" disabled={downloading || !job.resultPath} onClick={download}>
           {downloading ? "Preparing..." : "Download"}
         </button>
-        <button className="btn btn-ghost" disabled={busy} onClick={regenerate}>Reshoot</button>
+        <button className="btn btn-ghost" disabled={busy} onClick={regenerate}>Make a variation</button>
+        {!isVideo && <Link href={`/app/video?shot=${job.id}`} className="btn btn-ghost">Animate to video</Link>}
+        {!isVideo && <Link href={`/app/replace?shot=${job.id}`} className="btn btn-ghost">Use in Replace</Link>}
         {onReset ? (
           <button className="btn btn-ghost" onClick={onReset}>New shoot</button>
         ) : (
-          <button className="btn btn-ghost" onClick={() => router.push("/app/shots")}>Contact sheet</button>
+          <button className="btn btn-ghost" onClick={() => router.push("/app/shots")}>My Shots</button>
         )}
       </div>
 
-      {/* Generate video from this still */}
+      {/* How this was made (the atelier read) */}
+      <details className="panel">
+        <summary>How this was made<span className="panel-sel">atelier</span></summary>
+        <div className="panel-body">
+          <div className="mono" style={{ fontSize: 12, color: "var(--text-secondary)", display: "grid", gap: 4 }}>
+            <span>piece: {job.category ?? "product"}</span>
+            <span>readiness: {tier}</span>
+            <span>fidelity: {job.fidelity ?? "n/a"}</span>
+            {job.format && <span>format: {job.format}</span>}
+          </div>
+          <p className="muted" style={{ fontSize: 12, margin: 0 }}>Reference-locked: your product was the anchor and a fidelity check ran before delivery.</p>
+        </div>
+      </details>
+
+      {/* Generate video from this still (quick inline; the full Video mode is its own tab) */}
       {!isVideo && (
         <div className="card" style={{ display: "grid", gap: 12 }}>
           <strong style={{ display: "flex", alignItems: "center", gap: 8 }}>

@@ -15,7 +15,7 @@ export default async function SignupPage() {
       </Link>
       <h1 style={{ fontSize: 36, color: "var(--porcelain)", marginBottom: 8 }}>Step onto set</h1>
       <p className="muted" style={{ marginBottom: 28 }}>
-        Start with 400 free credits. Your product, your muse, your shoot.
+        Start with 400 free credits. Your product, your model, your shoot.
       </p>
       <AuthForm mode="signup" />
     </>

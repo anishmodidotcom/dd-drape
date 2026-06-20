@@ -1,7 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/supabase/server";
 import { generateModel, createUploadedModel } from "@/lib/models/generate";
+import { listModels } from "@/lib/models/data";
 import type { ModelInputs } from "@/lib/models/schema";
+
+// GET /api/models -> the user's ready models (for the studio casting library; client-cached refresh).
+export async function GET() {
+  const user = await getUser();
+  if (!user) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  const rows = await listModels();
+  const models = rows
+    .filter((mdl) => mdl.status === "ready" && mdl.image_paths?.length)
+    .map((mdl) => ({ id: mdl.id, name: mdl.name, image_paths: mdl.image_paths }));
+  return NextResponse.json({ models });
+}
 
 // POST /api/models
 //   { name, inputs }                    -> generate a saved model (4 reference angles, costs credits)

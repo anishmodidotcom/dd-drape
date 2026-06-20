@@ -17,7 +17,7 @@ const ASIDES = [
   "Hand us the garment. We'll handle the drama.",
   "Good light is patient. So are we.",
   "Every thread accounted for.",
-  "The muse is almost ready.",
+  "The model is almost ready.",
 ];
 
 export function AtelierLoader({ title = "Styling the shoot", holdMs = 2600 }: { title?: string; holdMs?: number }) {

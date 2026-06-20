@@ -1,7 +1,7 @@
 import { Studio } from "@/components/Studio";
 import { listModels } from "@/lib/models/data";
 
-export const metadata = { title: "On Set. Oviya Studio." };
+export const metadata = { title: "Studio. Oviya Studio." };
 
 export default async function NewShotPage() {
   const models = await listModels();

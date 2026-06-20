@@ -29,7 +29,7 @@ const dmMono = DM_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Oviya Studio. Your product. Your muse. Your shoot.",
+  title: "Oviya Studio. Your product. Your model. Your shoot.",
   description:
     "Every product, a work of art. Oviya Studio turns your product into a high-fashion editorial shoot.",
   openGraph: {
