@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/supabase/server";
-import { runShot } from "@/lib/engine/run-shot";
+import { runShot, runShoot, runReplaceVideo } from "@/lib/engine/run-shot";
 import { InsufficientCreditsError } from "@/lib/engine/ledger";
-import type { ShotSpec } from "@/lib/shot/spec";
+import { MAX_OUTPUTS, MAX_PRODUCTS, type ShotSpec } from "@/lib/shot/spec";
 
 // POST /api/shots  { spec: ShotSpec }
 // The core generation endpoint. Reserves credits, generates a reference-locked still, and applies
@@ -35,8 +35,25 @@ export async function POST(req: NextRequest) {
       { status: 400 }
     );
   }
+  if (spec.referenceImagePaths.length > MAX_PRODUCTS) {
+    return NextResponse.json({ error: `at most ${MAX_PRODUCTS} products per shot` }, { status: 400 });
+  }
+  if ((spec.outputCount ?? 1) > MAX_OUTPUTS) {
+    return NextResponse.json({ error: `at most ${MAX_OUTPUTS} outputs per shoot` }, { status: 400 });
+  }
 
   try {
+    // Replace-into-video (item 6): two-stage swap-then-animate.
+    if (spec.replace?.sourceVideoPath) {
+      const result = await runReplaceVideo(user.id, user.email ?? null, spec);
+      return NextResponse.json(result, { status: 202 });
+    }
+    // Directed multi-output shoot (item 5).
+    if ((spec.outputCount ?? 1) > 1) {
+      const result = await runShoot(user.id, user.email ?? null, spec);
+      return NextResponse.json(result, { status: 202 });
+    }
+    // Single still (single or multi-product, identity, replace-image).
     const result = await runShot(user.id, user.email ?? null, spec);
     return NextResponse.json(result, { status: 202 });
   } catch (err) {

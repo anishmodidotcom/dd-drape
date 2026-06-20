@@ -13,6 +13,7 @@ import { FORMATS } from "@/lib/shot/formats";
 import { motionsForCategory } from "@/lib/shot/motion";
 import { thumbUrl } from "@/lib/shot/thumbnails";
 import { TIER_PRESENTATION } from "@/lib/shot/qc";
+import { parseJsonSafe } from "@/lib/http";
 import type { ProductAnalysis } from "@/lib/director/schema";
 import {
   ETHNICITIES,
@@ -86,6 +87,7 @@ export function Studio({ savedModels = [] }: { savedModels?: SavedModelOption[] 
 
   const [category, setCategory] = useState<Category | null>(null);
   const [subType, setSubType] = useState<string | null>(null);
+  const [override, setOverride] = useState(false); // item 3: pills hidden until the user opens this
 
   const [presetId, setPresetId] = useState<string | null>(null);
   const [custom, setCustom] = useState(false); // true once the user fine-tunes off a Look
@@ -156,13 +158,14 @@ export function Studio({ savedModels = [] }: { savedModels?: SavedModelOption[] 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
 
-  // Analyze the product the moment it lands, so the casting read is visible and confirmable.
+  // Analyze the product the moment it lands, so the casting read is visible and confirmable. Parses
+  // defensively (item 9) so a non-JSON error never surfaces as a raw parse crash.
   async function analyze(path: string) {
     setAnalyzing(true);
     try {
       const res = await fetch("/api/analyze", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ path }) });
-      const j = await res.json();
-      const a = (j?.analysis ?? null) as ProductAnalysis | null;
+      const parsed = await parseJsonSafe<{ analysis: ProductAnalysis | null }>(res);
+      const a = (parsed.ok ? parsed.data?.analysis : null) ?? null;
       setAnalysis(a);
       if (a?.product_category) {
         const cat = a.product_category as Category;
@@ -171,9 +174,14 @@ export function Studio({ savedModels = [] }: { savedModels?: SavedModelOption[] 
         if (sub) setSubType((s) => s ?? sub);
         // Smart default: pre-select a strong Look for the detected category so one click can Shoot.
         setPresetId((p) => p ?? presetsForCategory(cat)[0]?.id ?? null);
+      } else {
+        // Identification unavailable (e.g. director off): open the manual override so the user is
+        // never stuck without a way to set the category.
+        setOverride(true);
       }
     } catch {
       setAnalysis(null);
+      setOverride(true);
     } finally {
       setAnalyzing(false);
     }
@@ -240,13 +248,13 @@ export function Studio({ savedModels = [] }: { savedModels?: SavedModelOption[] 
     setSubmitError(null);
     try {
       const res = await fetch("/api/shots", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ spec }) });
-      const json = await res.json();
+      const parsed = await parseJsonSafe<{ jobId: string }>(res);
       if (res.status === 402) {
         setSubmitError("You do not have enough credits for this shoot. Top up to continue.");
         return;
       }
-      if (!res.ok) throw new Error(json.error ?? "The shoot could not start");
-      setActiveJobId(json.jobId);
+      if (!parsed.ok || !parsed.data?.jobId) throw new Error(parsed.error ?? "The shoot could not start");
+      setActiveJobId(parsed.data.jobId);
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "The shoot could not start");
     } finally {
@@ -282,8 +290,13 @@ export function Studio({ savedModels = [] }: { savedModels?: SavedModelOption[] 
                   </button>
                 </div>
               ))}
-              <Uploader label="Add another angle" onUploaded={(item) => setProducts((arr) => [...arr, item])} />
+              <Uploader label="Add another product" onUploaded={(item) => setProducts((arr) => [...arr, item])} />
             </div>
+          )}
+
+          {/* Non-blocking small-image advisory (item 10). */}
+          {products.find((p) => p.warning) && (
+            <span className="chip chip-amber" style={{ width: "fit-content" }}>{products.find((p) => p.warning)?.warning}</span>
           )}
 
           {products.length > 0 && (
@@ -298,29 +311,42 @@ export function Studio({ savedModels = [] }: { savedModels?: SavedModelOption[] 
                       .filter(Boolean)
                       .map((x) => titleize(String(x)))
                       .join(", ") || "your product"}
-                    .
+                    {products.length > 1 ? `, and ${products.length - 1} more piece${products.length > 2 ? "s" : ""}` : ""}.
                   </div>
                   <span className="muted" style={{ fontSize: 12 }}>This stays the anchor for every shoot. We enhance and place it, we never reinvent it.</span>
                 </>
               ) : (
-                <span className="muted" style={{ fontSize: 12 }}>Tell us what this is below, then pick a Look. Your product stays the anchor.</span>
+                <span className="muted" style={{ fontSize: 12 }}>Identifying your piece. You can correct it below if we get it wrong.</span>
               )}
 
-              {/* Confirmable category + sub-type */}
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 2 }}>
-                {(Object.keys(CATEGORY_LABELS) as Category[]).map((c) => (
-                  <button key={c} className="chip" style={{ cursor: "pointer", borderColor: category === c ? "var(--accent)" : undefined, color: category === c ? "var(--accent)" : undefined }} onClick={() => { setCategory(c); setSubType(null); setPresetId(presetsForCategory(c)[0]?.id ?? null); }}>
-                    {CATEGORY_LABELS[c]}
-                  </button>
-                ))}
-              </div>
-              {category && (
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {SUBTYPES[category].map((s) => (
-                    <button key={s.id} className="chip" style={{ cursor: "pointer", fontSize: 11, borderColor: subType === s.id ? "var(--accent)" : undefined, color: subType === s.id ? "var(--accent)" : undefined }} onClick={() => setSubType(s.id)}>
-                      {s.label}
-                    </button>
-                  ))}
+              {/* Item 3: identification is the front door. The manual category/sub-type pills are
+                  hidden behind an optional override, not shown by default. */}
+              {!override ? (
+                <button
+                  type="button"
+                  onClick={() => setOverride(true)}
+                  style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontFamily: "var(--font-ui)", fontSize: 12, color: "var(--text-muted)", textDecoration: "underline", textUnderlineOffset: 3, width: "fit-content" }}
+                >
+                  Not quite? Tell us what it is
+                </button>
+              ) : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {(Object.keys(CATEGORY_LABELS) as Category[]).map((c) => (
+                      <button key={c} className="chip" style={{ cursor: "pointer", borderColor: category === c ? "var(--accent)" : undefined, color: category === c ? "var(--accent)" : undefined }} onClick={() => { setCategory(c); setSubType(null); setPresetId(presetsForCategory(c)[0]?.id ?? null); }}>
+                        {CATEGORY_LABELS[c]}
+                      </button>
+                    ))}
+                  </div>
+                  {category && (
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      {SUBTYPES[category].map((s) => (
+                        <button key={s.id} className="chip" style={{ cursor: "pointer", fontSize: 11, borderColor: subType === s.id ? "var(--accent)" : undefined, color: subType === s.id ? "var(--accent)" : undefined }} onClick={() => setSubType(s.id)}>
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>

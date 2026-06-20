@@ -1,9 +1,10 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { resolveMedia, invalidateMedia } from "@/lib/mediaCache";
 
-// Renders a private storage object via a fresh signed URL, and auto-refreshes on expiry (403 /
-// load error) so previews never break. Pass the storage `path`; the component fetches the signed
-// URL from /api/media. (Fixes v1's broken previews when signed URLs expired.)
+// Renders a private storage object via a signed URL resolved through the session media cache (item
+// 11), so reopening a gallery reuses the cached URL (and the browser reuses the bytes) instead of
+// re-resolving every time. Auto-refreshes on expiry (403 / load error) so previews never break.
 
 export function SmartImage({
   path,
@@ -24,10 +25,7 @@ export function SmartImage({
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch(`/api/media?path=${encodeURIComponent(path)}`);
-      if (!res.ok) throw new Error(String(res.status));
-      const json = await res.json();
-      setUrl(json.url as string);
+      setUrl(await resolveMedia(path));
       setFailed(false);
     } catch {
       setFailed(true);
@@ -42,6 +40,7 @@ export function SmartImage({
   function onError() {
     if (retries.current < 2) {
       retries.current += 1;
+      invalidateMedia(path); // the cached URL expired; drop it so refresh re-mints
       refresh();
     } else {
       setFailed(true);

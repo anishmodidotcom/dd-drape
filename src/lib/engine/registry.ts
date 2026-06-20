@@ -18,9 +18,11 @@ export type Need =
   | "image/hero"
   | "tryon"
   | "image/edit"
+  | "image/replace"
   | "bg-remove"
   | "video/standard"
   | "video/hero"
+  | "video/replace"
   | "upscale/video";
 
 export type CostUnit = "image" | "second" | "megapixel" | "token";
@@ -76,6 +78,18 @@ export const REGISTRY: Record<Need, ModelEntry> = {
     textToImage: false,
     note: "GPT Image 2 edit - precise region edits / inpaint with optional mask_url.",
   },
+  // REPLACE (item 6): swap the product(s) into an existing source still, preserving the source's
+  // pose/scene/lighting. Nano Banana Pro edit, multi-reference: source is the scene to keep, the
+  // product(s) are inserted. The compose layer assigns roles (source = Image 1, products follow).
+  "image/replace": {
+    slug: "fal-ai/nano-banana-pro/edit",
+    unit: "image",
+    unitCostCents: 15,
+    async: false,
+    refShape: "image_urls",
+    textToImage: false,
+    note: "Nano Banana Pro EDIT - product swap into a source still, scene preserved.",
+  },
   // Garment worn on a model. FASHN try-on.
   tryon: {
     slug: "fal-ai/fashn/tryon/v1.6",
@@ -105,6 +119,19 @@ export const REGISTRY: Record<Need, ModelEntry> = {
     refShape: "start_image",
     textToImage: false,
     note: "Kling v3 pro i2v - anchored to the approved still as the first frame.",
+  },
+  // REPLACE-INTO-VIDEO (item 6): the product is first swapped into the source's frame (image/replace),
+  // then this i2v anchors that swapped still as the first frame so the product stays locked across
+  // frames. Capability note: motion is re-synthesized by i2v, not lifted frame-exact from the source
+  // (no production video-to-video product-swap slug available); documented as a gap.
+  "video/replace": {
+    slug: "fal-ai/kling-video/v3/pro/image-to-video",
+    unit: "second",
+    unitCostCents: 11.2,
+    async: true,
+    refShape: "start_image",
+    textToImage: false,
+    note: "Kling v3 pro i2v - anchored to the product-swapped still; preserves the product across frames.",
   },
   // HERO video, premium i2v. Slug verified-live before first spend (Phase D).
   "video/hero": {

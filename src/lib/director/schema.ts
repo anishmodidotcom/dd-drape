@@ -67,14 +67,17 @@ export interface RoutedGeneration {
   fidelityLocks: string[];
 }
 
-// Reference image roles passed to the router.
+// Reference image roles passed to the router. Order in the built image_urls array encodes roles,
+// and the compose prompt names each by position.
 export interface ReferenceImages {
-  /** The exact product image URL(s) - always present, always attached. */
+  /** The exact product image URL(s) - one per distinct article (item 2). Always attached. */
   product: string[];
-  /** Optional saved-model identity reference URL(s). */
+  /** Optional saved/uploaded model identity reference URL(s). */
   modelIdentity?: string[];
   /** Optional scene / vibe reference URL. */
   scene?: string;
+  /** Replace (item 6): the source still to keep; products are swapped into it. Becomes Image 1. */
+  replaceSource?: string;
 }
 
 // Fidelity-gate verdict (post-generation critique).

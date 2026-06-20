@@ -18,9 +18,14 @@ function attachReference(
 
   switch (entry.refShape) {
     case "image_urls": {
-      // Edit models accept up to 14 references. Order = roles: product first (the exact garment),
-      // then model identity, then scene. Compose's prompt assigns these roles by position.
-      const urls = [...product, ...(refs.modelIdentity ?? [])];
+      // Edit models accept up to 14 references. Order encodes roles, and compose's prompt names each
+      // by position. Replace (item 6): the SOURCE still is Image 1 (the scene to keep), then the
+      // products to swap in. Otherwise: products first (each a distinct article to preserve), then
+      // the model identity, then a scene reference. The identity is an identity CONDITION, never a
+      // panel to depict; the anti-collage prompt enforces a single cohesive subject.
+      const urls = refs.replaceSource
+        ? [refs.replaceSource, ...product, ...(refs.modelIdentity ?? [])]
+        : [...product, ...(refs.modelIdentity ?? [])];
       if (refs.scene) urls.push(refs.scene);
       falInput.image_urls = urls;
       break;
@@ -30,8 +35,8 @@ function attachReference(
       break;
     }
     case "start_image": {
-      // i2v: the approved still is the start frame.
-      falInput.start_image_url = product[0];
+      // i2v: the approved still (or product-swapped still for replace) is the start frame.
+      falInput.start_image_url = refs.replaceSource ?? product[0];
       break;
     }
     case "tryon": {

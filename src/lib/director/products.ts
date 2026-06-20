@@ -8,6 +8,45 @@ import type { Json } from "@/lib/supabase/types";
 // Product analysis cache. Analyze a product image once and store it on drape_products so
 // re-generations of the same item skip re-analysis.
 
+// Item 8: persist an uploaded product to the user's collection for reuse. Idempotent per
+// (user, image_path); marks the existing analysis row "saved" (and names it) or inserts one.
+export async function saveProductToCollection(
+  userId: string,
+  imagePath: string,
+  name?: string
+): Promise<void> {
+  const admin = getAdminClient();
+  await admin.from("drape_products").upsert(
+    {
+      user_id: userId,
+      image_path: imagePath,
+      saved: true,
+      ...(name ? { name: name.slice(0, 120) } : {}),
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: "user_id,image_path" }
+  );
+}
+
+export interface SavedProduct {
+  image_path: string;
+  name: string | null;
+  analysis: ProductAnalysis | null;
+  updated_at: string;
+}
+
+/** List the user's saved products for reuse as inputs. */
+export async function listSavedProducts(userId: string): Promise<SavedProduct[]> {
+  const admin = getAdminClient();
+  const { data } = await admin
+    .from("drape_products")
+    .select("image_path, name, analysis, updated_at")
+    .eq("user_id", userId)
+    .eq("saved", true)
+    .order("updated_at", { ascending: false });
+  return (data as unknown as SavedProduct[]) ?? [];
+}
+
 export async function getOrAnalyzeProduct(
   userId: string,
   imagePath: string,

@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
   try {
     const path = await storeUpload(user.id, v.cleaned!, CONTENT_TYPE[v.ext!], v.ext!);
     const url = await signedUrl(path, 3600);
-    return NextResponse.json({ path, url, width: v.width, height: v.height });
+    // Item 10: a small image is accepted; the advisory rides along, the client shows it dismissibly.
+    return NextResponse.json({ path, url, width: v.width, height: v.height, warning: v.warning ?? null });
   } catch (err) {
     console.error("upload failed", err);
     return NextResponse.json({ error: "upload_failed" }, { status: 500 });

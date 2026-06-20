@@ -26,10 +26,13 @@ const POLL_MS = Number(process.env.WORKER_POLL_MS ?? 5000);
 // (the audit found them drifted). video/standard = Kling v3 pro i2v, which takes start_image_url
 // (set by /api/jobs/[id]/video). Keep all three definitions (registry, video route field, worker
 // slug) in agreement.
-const VIDEO_NEEDS = ["video/standard", "video/hero", "upscale/video"];
+const VIDEO_NEEDS = ["video/standard", "video/hero", "video/replace", "upscale/video"];
 const SLUGS: Record<string, string> = {
   "video/standard": "fal-ai/kling-video/v3/pro/image-to-video",
   "video/hero": "fal-ai/veo3.1",
+  // Replace-into-video (item 6): i2v anchored to the product-swapped still; same slug/field as
+  // video/standard so the product stays locked across frames.
+  "video/replace": "fal-ai/kling-video/v3/pro/image-to-video",
   "upscale/video": "fal-ai/topaz/upscale/video",
 };
 

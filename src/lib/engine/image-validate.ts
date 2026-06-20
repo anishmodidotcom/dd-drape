@@ -79,6 +79,8 @@ export function stripJpegExif(bytes: Uint8Array): Uint8Array {
 export interface ValidationResult {
   ok: boolean;
   reason?: string;
+  /** Non-blocking advisory (e.g. small image). The upload still succeeds; the user decides. */
+  warning?: string;
   mime?: Exclude<SniffedMime, null>;
   ext?: "png" | "jpg" | "webp";
   width?: number;
@@ -92,19 +94,18 @@ const EXT: Record<Exclude<SniffedMime, null>, "png" | "jpg" | "webp"> = {
   "image/webp": "webp",
 };
 
-// Validate + clean an upload. Rejects non-image content and too-small images; strips EXIF.
+// Validate + clean an upload. Rejects only genuinely-invalid files (non-image / corrupt). A small
+// image is ACCEPTED with a non-blocking warning (item 10): the user decides, never blocked on size.
 export function validateImageUpload(bytes: Uint8Array): ValidationResult {
   const mime = sniffMime(bytes);
   if (!mime) {
     return { ok: false, reason: "Unsupported file. Upload a JPG, PNG, or WEBP image." };
   }
   const dims = readDimensions(bytes, mime);
-  if (dims && Math.min(dims.width, dims.height) < MIN_SHORT_EDGE) {
-    return {
-      ok: false,
-      reason: `That image is a bit small (${dims.width}x${dims.height}). For a crisp result, upload at least ${MIN_SHORT_EDGE}px on the short edge.`,
-    };
-  }
+  const warning =
+    dims && Math.min(dims.width, dims.height) < MIN_SHORT_EDGE
+      ? `This image is small (${dims.width}x${dims.height}), so results may be a little softer.`
+      : undefined;
   const cleaned = mime === "image/jpeg" ? stripJpegExif(bytes) : bytes;
-  return { ok: true, mime, ext: EXT[mime], width: dims?.width, height: dims?.height, cleaned };
+  return { ok: true, warning, mime, ext: EXT[mime], width: dims?.width, height: dims?.height, cleaned };
 }

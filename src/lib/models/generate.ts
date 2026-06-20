@@ -2,12 +2,39 @@ import "server-only";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { runSync } from "@/lib/engine/fal";
 import { firstOutputUrl } from "@/lib/engine/run";
-import { storeFromUrlAt } from "@/lib/engine/storage";
+import { storeFromUrlAt, pathBelongsToUser } from "@/lib/engine/storage";
 import { createJob, markJobDone, markJobFailed } from "@/lib/engine/jobs";
 import { reserveCredits, settleCredits, refundCredits } from "@/lib/engine/credits";
 import { buildModelPrompt, MODEL_NEGATIVE } from "./prompt";
 import { MODEL_ANGLES, MODEL_CREATE_CREDITS, type ModelInputs } from "./schema";
 import type { Json } from "@/lib/supabase/types";
+
+// Item 7: save a user-UPLOADED model (their own person/face/body reference) to the model library,
+// reusable exactly like a generated model. No credits (the user supplied the image). The
+// identity-application fix (item 1) makes an uploaded model compose cleanly, not as a collage.
+export async function createUploadedModel(
+  userId: string,
+  name: string,
+  imagePaths: string[],
+  inputs: ModelInputs = {}
+): Promise<GenerateModelResult> {
+  if (!imagePaths?.length) throw new Error("at least one model image is required");
+  for (const p of imagePaths) {
+    if (!pathBelongsToUser(p, userId)) throw new Error("model image does not belong to the caller");
+  }
+  const admin = getAdminClient();
+  const modelId = crypto.randomUUID();
+  const { error } = await admin.from("drape_models").insert({
+    id: modelId,
+    user_id: userId,
+    name: name.slice(0, 80) || "My model",
+    inputs: { ...inputs, uploaded: true } as unknown as Json,
+    image_paths: imagePaths,
+    status: "ready",
+  });
+  if (error) throw new Error(`createUploadedModel failed: ${error.message}`);
+  return { status: "ready", modelId, imagePaths };
+}
 
 // Generate a saved model: 4 consistent white-background reference angles. The first angle is
 // text-to-image (a NEW person, not the user's product, so the product fidelity guard does not

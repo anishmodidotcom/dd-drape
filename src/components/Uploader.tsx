@@ -1,12 +1,19 @@
 "use client";
 import { useRef, useState } from "react";
+import { parseJsonSafe } from "@/lib/http";
+import { maybeDownscale } from "@/lib/imageDownscale";
 
 export interface UploadedItem {
   path: string;
   url: string;
+  /** Non-blocking advisory from the server (e.g. small image). */
+  warning?: string | null;
 }
 
-// Drag/drop or tap uploader. Posts to /api/uploads and returns the stored path + signed preview URL.
+// Drag/drop or tap uploader. Downscales oversized images in the browser (so the platform body limit
+// never returns a non-JSON 413), posts to /api/uploads, and parses the response defensively so a
+// non-JSON error can never surface as a raw parse crash (item 9). Small images are accepted with a
+// dismissible warning (item 10).
 export function Uploader({
   label,
   hint,
@@ -21,18 +28,22 @@ export function Uploader({
   const [error, setError] = useState<string | null>(null);
   const [dragOver, setDragOver] = useState(false);
 
-  async function upload(file: File) {
+  async function upload(rawFile: File) {
     setError(null);
     setBusy(true);
     try {
+      const file = await maybeDownscale(rawFile);
       const form = new FormData();
       form.append("file", file);
       const res = await fetch("/api/uploads", { method: "POST", body: form });
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Upload failed");
-      onUploaded(json as UploadedItem);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      const parsed = await parseJsonSafe<UploadedItem>(res);
+      if (!parsed.ok || !parsed.data) {
+        setError(parsed.error ?? "Upload failed. Please try again.");
+        return;
+      }
+      onUploaded(parsed.data);
+    } catch {
+      setError("Upload failed. Please check your connection and try again.");
     } finally {
       setBusy(false);
     }
