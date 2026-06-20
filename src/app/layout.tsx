@@ -1,19 +1,30 @@
 import type { Metadata } from "next";
-import { Fraunces, Inter } from "next/font/google";
+import { Bodoni_Moda, Hanken_Grotesk, DM_Mono } from "next/font/google";
+import "./tokens.css";
 import "./globals.css";
 import { ToastProvider } from "@/components/ui/Toast";
+import { ThemeProvider } from "@/components/ThemeProvider";
 
-const fraunces = Fraunces({
+// Two voices + a mono, self-hosted by next/font. Display is a high-contrast editorial serif
+// (Bodoni Moda, the GT-Sectra/Canela register), body a premium grotesk (Hanken Grotesk,
+// Satoshi-adjacent), mono reserved for the atelier process + technical metadata (DM Mono).
+const bodoni = Bodoni_Moda({
   subsets: ["latin"],
-  weight: ["400", "600", "700"],
-  variable: "--font-fraunces",
+  weight: ["400", "500", "600", "700", "800", "900"],
+  style: ["normal", "italic"],
+  variable: "--font-bodoni",
   display: "swap",
 });
-
-const inter = Inter({
+const hanken = Hanken_Grotesk({
   subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-inter",
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-hanken",
+  display: "swap",
+});
+const dmMono = DM_Mono({
+  subsets: ["latin"],
+  weight: ["300", "400", "500"],
+  variable: "--font-dm-mono",
   display: "swap",
 });
 
@@ -38,10 +49,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${fraunces.variable} ${inter.variable}`}>
+    <html lang="en" suppressHydrationWarning className={`${bodoni.variable} ${hanken.variable} ${dmMono.variable}`}>
       <body>
-        <ToastProvider>{children}</ToastProvider>
-        <div className="grain" aria-hidden="true" />
+        <ThemeProvider>
+          <ToastProvider>{children}</ToastProvider>
+          <div className="grain" aria-hidden="true" />
+        </ThemeProvider>
       </body>
     </html>
   );
