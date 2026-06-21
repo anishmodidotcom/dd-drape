@@ -186,6 +186,16 @@ export function Studio({ savedModels: initialModels = [] }: { savedModels?: Save
   }
   function reset() { setActiveJobId(null); setShootIds(null); }
 
+  const [sampling, setSampling] = useState(false);
+  async function loadSample() {
+    setSampling(true);
+    try {
+      const res = await fetch("/api/uploads/sample", { method: "POST" });
+      const parsed = await parseJsonSafe<UploadedItem>(res);
+      if (parsed.ok && parsed.data) { setProducts([parsed.data]); analyze(parsed.data.path); }
+    } finally { setSampling(false); }
+  }
+
   const canShoot = !!spec && products.length > 0 && !submitting;
   const showResult = activeJobId || shootIds;
 
@@ -261,7 +271,7 @@ export function Studio({ savedModels: initialModels = [] }: { savedModels?: Save
               </p>
             </div>
           ) : (
-            <EmptyInvite />
+            <EmptyInvite onSample={loadSample} sampling={sampling} />
           )}
         </div>
       </div>
@@ -348,7 +358,7 @@ export function Studio({ savedModels: initialModels = [] }: { savedModels?: Save
   );
 }
 
-function EmptyInvite() {
+function EmptyInvite({ onSample, sampling }: { onSample: () => void; sampling: boolean }) {
   const [example, setExample] = useState(false);
   return (
     <div style={{ display: "grid", placeItems: "center", padding: 40, textAlign: "center", width: "100%", maxWidth: 460 }}>
@@ -364,7 +374,11 @@ function EmptyInvite() {
           <h1 className="display" style={{ fontSize: "var(--step-3)", marginTop: 18 }}>The studio is yours</h1>
           <p className="serif-italic" style={{ color: "var(--text-secondary)", marginTop: 8 }}>Hand us the garment. We&apos;ll handle the drama.</p>
           <p className="muted" style={{ maxWidth: "34ch", marginTop: 10 }}>Upload your product on the right. It stays the anchor for every shoot, we never reinvent it.</p>
-          <button className="btn btn-ghost" style={{ marginTop: 16, fontSize: 13 }} onClick={() => setExample(true)}>See an example</button>
+          <div style={{ display: "flex", gap: 10, marginTop: 18, flexWrap: "wrap", justifyContent: "center" }}>
+            <Button variant="primary" size="sm" loading={sampling} loadingLabel="Fetching" onClick={onSample}>Try a sample piece</Button>
+            <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setExample(true)}>See an example</button>
+          </div>
+          <p className="muted" style={{ fontSize: 11, marginTop: 12 }}>New here? Try the sample to reach your first result in one tap.</p>
         </>
       )}
     </div>

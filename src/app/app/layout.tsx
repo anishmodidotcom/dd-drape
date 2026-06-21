@@ -33,6 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           <div className="card" style={{ position: "absolute", right: 0, top: "calc(100% + 8px)", width: 220, display: "grid", gap: 10, zIndex: 50, boxShadow: "var(--shadow-3)" }}>
             <span className="muted" style={{ fontSize: 12, wordBreak: "break-all" }}>{user.email}</span>
             <SignOutButton />
+            <span className="mono" style={{ fontSize: 10, color: "var(--text-muted)", letterSpacing: "0.08em" }}>Oviya Studio · v4</span>
           </div>
         </details>
       </header>
