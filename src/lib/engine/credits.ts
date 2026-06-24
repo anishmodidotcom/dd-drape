@@ -9,6 +9,17 @@ import { InsufficientCreditsError } from "./ledger";
 //   drape_grant_credits(p_user_id uuid, p_amount bigint, p_note text)
 //   drape_debit_credits(p_user_id uuid, p_amount bigint, p_job_id uuid, p_kind text, p_gate boolean, p_note text)
 
+/** Current balance for a user, read with the admin client (server-side affordability checks). */
+export async function creditBalance(userId: string): Promise<number> {
+  const admin = getAdminClient();
+  const { data } = await admin
+    .from("drape_credit_balances")
+    .select("balance")
+    .eq("user_id", userId)
+    .maybeSingle();
+  return (data?.balance as number | undefined) ?? 0;
+}
+
 export async function grantCredits(userId: string, amount: number, note?: string) {
   const admin = getAdminClient();
   const { data, error } = await admin.rpc("drape_grant_credits", {

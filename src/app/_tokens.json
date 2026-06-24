@@ -1,0 +1,158 @@
+{
+  "primitives": {
+    "n0": {
+      "oklch": "oklch(0.9720 0.0110 78.0)",
+      "hex": "#faf5ee"
+    },
+    "n1": {
+      "oklch": "oklch(0.9450 0.0130 77.0)",
+      "hex": "#f2ece3"
+    },
+    "n2": {
+      "oklch": "oklch(0.9050 0.0130 76.0)",
+      "hex": "#e5dfd6"
+    },
+    "n3": {
+      "oklch": "oklch(0.8600 0.0120 75.0)",
+      "hex": "#d6d0c9"
+    },
+    "n4": {
+      "oklch": "oklch(0.7800 0.0110 74.0)",
+      "hex": "#bcb6b0"
+    },
+    "n5": {
+      "oklch": "oklch(0.6800 0.0100 73.0)",
+      "hex": "#9c9792"
+    },
+    "n6": {
+      "oklch": "oklch(0.5600 0.0090 72.0)",
+      "hex": "#78746f"
+    },
+    "n7": {
+      "oklch": "oklch(0.4500 0.0080 71.0)",
+      "hex": "#585551"
+    },
+    "n8": {
+      "oklch": "oklch(0.3400 0.0080 70.0)",
+      "hex": "#3b3734"
+    },
+    "n9": {
+      "oklch": "oklch(0.2700 0.0070 68.0)",
+      "hex": "#292623"
+    },
+    "n10": {
+      "oklch": "oklch(0.2300 0.0060 66.0)",
+      "hex": "#1f1c1a"
+    },
+    "n11": {
+      "oklch": "oklch(0.1900 0.0060 64.0)",
+      "hex": "#161311"
+    },
+    "n12": {
+      "oklch": "oklch(0.1600 0.0050 62.0)",
+      "hex": "#0f0d0b"
+    },
+    "n13": {
+      "oklch": "oklch(0.1300 0.0050 60.0)",
+      "hex": "#090706"
+    },
+    "a0": {
+      "oklch": "oklch(0.9500 0.0220 18.0)",
+      "hex": "#fde9e9"
+    },
+    "a1": {
+      "oklch": "oklch(0.9000 0.0450 18.0)",
+      "hex": "#fbd3d3"
+    },
+    "a2": {
+      "oklch": "oklch(0.8200 0.0800 18.0)",
+      "hex": "#f4b0b1"
+    },
+    "a3": {
+      "oklch": "oklch(0.7200 0.1200 19.0)",
+      "hex": "#e68487"
+    },
+    "a4": {
+      "oklch": "oklch(0.6200 0.1450 20.0)",
+      "hex": "#cf5d61"
+    },
+    "a5": {
+      "oklch": "oklch(0.5200 0.1500 20.0)",
+      "hex": "#af3b43"
+    },
+    "a6": {
+      "oklch": "oklch(0.4400 0.1420 20.0)",
+      "hex": "#912530"
+    },
+    "a7": {
+      "oklch": "oklch(0.3850 0.1300 19.0)",
+      "hex": "#7a1a26"
+    },
+    "a8": {
+      "oklch": "oklch(0.3200 0.1100 19.0)",
+      "hex": "#5f101b"
+    },
+    "a9": {
+      "oklch": "oklch(0.2600 0.0900 18.0)",
+      "hex": "#460913"
+    },
+    "indigo": {
+      "oklch": "oklch(0.4200 0.1100 270.0)",
+      "hex": "#364789"
+    },
+    "indigo-light": {
+      "oklch": "oklch(0.6000 0.1200 268.0)",
+      "hex": "#617cc8"
+    },
+    "gold": {
+      "oklch": "oklch(0.7800 0.0720 88.0)",
+      "hex": "#cbb582"
+    },
+    "gold-deep": {
+      "oklch": "oklch(0.6600 0.0800 86.0)",
+      "hex": "#a88f57"
+    },
+    "sand": {
+      "oklch": "oklch(0.8300 0.0400 70.0)",
+      "hex": "#d9c3ac"
+    },
+    "sand-deep": {
+      "oklch": "oklch(0.7000 0.0450 68.0)",
+      "hex": "#b29a81"
+    }
+  },
+  "light": {
+    "--surface-base": "#f2ece3",
+    "--surface-raised": "#faf5ee",
+    "--surface-overlay": "#faf5ee",
+    "--surface-sunken": "#e5dfd6",
+    "--text-primary": "#0f0d0b",
+    "--text-secondary": "#585551",
+    "--text-muted": "#78746f",
+    "--border-subtle": "#d6d0c9",
+    "--border-strong": "#bcb6b0",
+    "--accent-default": "#912530",
+    "--accent-hover": "#7a1a26",
+    "--accent-contrast": "#faf5ee",
+    "--indigo": "#364789",
+    "--gold": "#a88f57",
+    "--sand": "#d9c3ac"
+  },
+  "dark": {
+    "--surface-base": "#090706",
+    "--surface-raised": "#0f0d0b",
+    "--surface-overlay": "#161311",
+    "--surface-sunken": "#090706",
+    "--text-primary": "#f2ece3",
+    "--text-secondary": "#bcb6b0",
+    "--text-muted": "#9c9792",
+    "--border-subtle": "#1f1c1a",
+    "--border-strong": "#292623",
+    "--accent-default": "#cf5d61",
+    "--accent-hover": "#e68487",
+    "--accent-contrast": "#090706",
+    "--indigo": "#617cc8",
+    "--gold": "#cbb582",
+    "--sand": "#b29a81"
+  }
+}

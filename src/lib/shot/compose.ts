@@ -112,22 +112,87 @@ function fidelityClause(category: Category): string {
   );
 }
 
+// Humanize any ethnicity id we don't have a hand-written line for (the taxonomy is large and grows).
+function humanizeEthnicity(id: string): string {
+  const t = id.replace(/-/g, " ");
+  return `a ${t} model`;
+}
 function modelClause(spec: ShotSpec): string {
   const m = spec.model;
   if (!m) return "";
   const parts: string[] = [];
-  if (m.ethnicity) parts.push(ETHNICITY_TEXT[m.ethnicity] ?? "a model");
+  if (m.ethnicity) parts.push(ETHNICITY_TEXT[m.ethnicity] ?? humanizeEthnicity(m.ethnicity));
   else parts.push("a model");
-  if (m.body) parts.push(BODY_TEXT[m.body]);
+  if (m.skinTone) parts.push(`${m.skinTone.replace(/-/g, " ")} skin tone`);
+  if (m.body) parts.push(BODY_TEXT[m.body] ?? `${m.body.replace(/-/g, " ")} build`);
   if (m.ageRange) parts.push(`age ${m.ageRange}`);
+  if (m.gender && m.gender !== "women") parts.push(String(m.gender));
   if (m.bridalArchetype) parts.push("styled as a bride");
   if (m.demiFineEveryday) parts.push("an everyday, approachable look");
+  if (m.describe) parts.push(m.describe);
   return parts.filter(Boolean).join(", ");
+}
+
+// The single-subject lock. The recurring failure with multi-reference edit models is a COLLAGE:
+// the output shows the reference photos themselves laid side by side instead of one cohesive frame.
+// This clause forbids that explicitly and is appended whenever more than one reference is attached
+// or a model identity is used (item 1 root-cause fix).
+export const ANTI_COLLAGE =
+  "Produce ONE single cohesive photograph of one scene. Never depict the reference images " +
+  "themselves and never place them in the output. No collage, no grid, no split screen, no " +
+  "side-by-side panels, no picture-in-picture, no contact sheet, no before-and-after, no duplicated " +
+  "subject. The reference images are guidance only.";
+
+/**
+ * Names each attached reference image by position so a multi-reference edit model knows the ROLE of
+ * each (preserve the product(s); apply the identity; keep the source scene) and produces one frame.
+ * Order must match the router's image_urls ordering in route.ts.
+ */
+export function referenceRolesClause(opts: {
+  productCount: number;
+  hasIdentity: boolean;
+  isReplace?: boolean;
+}): string {
+  const { productCount, hasIdentity, isReplace } = opts;
+  const lines: string[] = [];
+  let i = 1;
+  if (isReplace) {
+    lines.push(
+      `Image ${i++} is the SOURCE scene to keep exactly: preserve its pose, composition, person, ` +
+        "background, lighting and mood unchanged."
+    );
+  }
+  if (productCount === 1) {
+    lines.push(`Image ${i++} is the exact product to preserve and place into the scene.`);
+  } else {
+    for (let p = 0; p < productCount; p++) {
+      lines.push(
+        `Image ${i++} is product ${p + 1} of ${productCount}: preserve it exactly (colour, fabric, ` +
+          "print, construction) and place it on the model together with the other products."
+      );
+    }
+    lines.push(
+      `All ${productCount} products must appear on the SAME single model in one coherent outfit, ` +
+        "each preserved faithfully and simultaneously."
+    );
+  }
+  if (hasIdentity) {
+    lines.push(
+      `Image ${i++} is the MODEL IDENTITY: the output person must have this exact face, hair, body ` +
+        "and skin tone. Use it only to define who the model is; do not show this photo in the output."
+    );
+  }
+  lines.push(ANTI_COLLAGE);
+  return lines.join(" ");
 }
 
 // Builds the natural-language prompt. No em dashes (brand rule).
 export function buildPrompt(spec: ShotSpec): string {
   const sentences: string[] = [];
+
+  const productCount = spec.referenceImagePaths?.length || 1;
+  const hasIdentity = !!(spec.modelImagePaths && spec.modelImagePaths.length > 0);
+  const isReplace = !!spec.replace?.sourceImagePath;
 
   const isOnModel =
     spec.shotType === "on-model-full" ||
@@ -135,6 +200,21 @@ export function buildPrompt(spec: ShotSpec): string {
     (spec.framing === "full-length" ||
       spec.framing === "three-quarter" ||
       spec.framing === "close-up-portrait");
+
+  // Replace request: keep the source, swap only the product(s).
+  if (isReplace) {
+    sentences.push(
+      productCount > 1
+        ? "Swap the products shown in the reference images into the source scene, replacing the corresponding worn items while keeping everything else identical."
+        : "Swap the product shown in the reference image into the source scene, replacing the corresponding worn item while keeping everything else identical."
+    );
+    sentences.push(fidelityClause(spec.category));
+    sentences.push(referenceRolesClause({ productCount, hasIdentity, isReplace: true }));
+    sentences.push(
+      "Natural, realistic result with lifelike skin and hands. No plastic skin, no distortion, no artificial smoothness."
+    );
+    return sentences.join(" ");
+  }
 
   // Subject sentence.
   if (isOnModel) {
@@ -167,6 +247,13 @@ export function buildPrompt(spec: ShotSpec): string {
 
   // Fidelity clause, always last and emphatic.
   sentences.push(fidelityClause(spec.category));
+
+  // Reference roles + single-subject lock whenever more than one reference is attached or a model
+  // identity is used. This is the structural fix for the saved-model collage (item 1) and the
+  // multi-product composition instruction (item 2).
+  if (productCount > 1 || hasIdentity) {
+    sentences.push(referenceRolesClause({ productCount, hasIdentity }));
+  }
 
   // Realism guardrail (the "AI tell" kills premium trust).
   sentences.push(

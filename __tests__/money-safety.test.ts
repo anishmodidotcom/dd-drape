@@ -60,12 +60,15 @@ describe("upload validation (Phase B)", () => {
     expect(sniffMime(new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]))).toBe(null);
   });
 
-  it("reads PNG dimensions and enforces the resolution floor", () => {
+  it("reads PNG dimensions and warns (never blocks) below the resolution floor (item 10)", () => {
     expect(readDimensions(pngBytes(1500, 2000), "image/png")).toEqual({ width: 1500, height: 2000 });
     const small = validateImageUpload(pngBytes(800, 800));
-    expect(small.ok).toBe(false);
-    expect(small.reason).toContain(String(MIN_SHORT_EDGE));
-    expect(validateImageUpload(pngBytes(1024, 1400)).ok).toBe(true);
+    expect(small.ok).toBe(true); // accepted; the user decides
+    expect(small.warning).toBeTruthy();
+    void MIN_SHORT_EDGE;
+    const big = validateImageUpload(pngBytes(1024, 1400));
+    expect(big.ok).toBe(true);
+    expect(big.warning).toBeUndefined();
   });
 
   it("rejects non-image content", () => {

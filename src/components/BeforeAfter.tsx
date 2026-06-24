@@ -1,5 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { resolveMedia, invalidateMedia } from "@/lib/mediaCache";
 
 // The before -> after reveal (brand motif). Draggable split slider over the original upload and
 // the generated shot.
@@ -17,18 +18,27 @@ function useSignedSrc(path?: string | null, directUrl?: string): [string | null,
       return;
     }
     try {
-      const res = await fetch(`/api/media?path=${encodeURIComponent(path)}`);
-      if (!res.ok) throw new Error(String(res.status));
-      const j = await res.json();
-      setUrl(j.url as string);
+      invalidateMedia(path);
+      setUrl(await resolveMedia(path));
+    } catch {
+      setUrl(null);
+    }
+  }, [path, directUrl]);
+  const load = useCallback(async () => {
+    if (!path) {
+      setUrl(directUrl ?? null);
+      return;
+    }
+    try {
+      setUrl(await resolveMedia(path));
     } catch {
       setUrl(null);
     }
   }, [path, directUrl]);
   useEffect(() => {
-    refresh();
-  }, [refresh]);
-  return [url, refresh];
+    load(); // mount: use the cached signed URL (no re-resolve on reopen)
+  }, [load]);
+  return [url, refresh]; // refresh (invalidate + re-mint) is wired to the <img> onError
 }
 
 export function BeforeAfter({

@@ -27,14 +27,14 @@ export default async function CreditsPage() {
   const [balance, txns] = await Promise.all([getBalance(), getTransactions(100)]);
 
   return (
-    <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24, flexWrap: "wrap", gap: 16 }}>
+    <div className="page">
+      <div className="card" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 24, flexWrap: "wrap", gap: 16, background: "linear-gradient(180deg, var(--surface-raised), var(--surface-base))" }}>
         <div>
-          <p className="eyebrow" style={{ marginBottom: 6 }}>Credits</p>
-          <div style={{ fontSize: 44, fontFamily: "var(--font-display)", fontWeight: 600 }}>
+          <p className="panel-eyebrow">Credits</p>
+          <div className="display" style={{ fontSize: "var(--step-4)", fontWeight: 600, lineHeight: 1, margin: "4px 0" }}>
             {balance.toLocaleString()}
           </div>
-          <p className="muted" style={{ margin: 0 }}>1 credit = $0.01 of generation. 400 free on signup.</p>
+          <p className="muted" style={{ margin: 0 }}>One credit is one cent of generation. Every signup starts with 400 free.</p>
         </div>
         <GetCreditsModal />
       </div>
@@ -75,6 +75,6 @@ export default async function CreditsPage() {
           </tbody>
         </table>
       </div>
-    </>
+    </div>
   );
 }

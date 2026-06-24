@@ -1,0 +1,177 @@
+{
+  "hero-dark": {
+    "path": "/v4/hero/hero-dark.png",
+    "model": "fal-flux",
+    "style": "chiaroscuro studio portrait"
+  },
+  "hero-light": {
+    "path": "/v4/hero/hero-light.png",
+    "model": "fal-flux",
+    "style": "sun-drenched mediterranean editorial"
+  },
+  "hero-wide": {
+    "path": "/v4/hero/hero-wide.png",
+    "model": "fal-flux",
+    "style": "warm-grey studio campaign"
+  },
+  "g-saree": {
+    "path": "/v4/gallery/g-saree.png",
+    "model": "fal-flux",
+    "style": "heritage interior chiaroscuro"
+  },
+  "g-lehenga": {
+    "path": "/v4/gallery/g-lehenga.png",
+    "model": "fal-flux",
+    "style": "bridal couture studio"
+  },
+  "g-sherwani": {
+    "path": "/v4/gallery/g-sherwani.png",
+    "model": "fal-flux",
+    "style": "menswear heritage"
+  },
+  "g-jewellery": {
+    "path": "/v4/gallery/g-jewellery.png",
+    "model": "fal-flux",
+    "style": "jewellery macro on-body"
+  },
+  "g-street": {
+    "path": "/v4/gallery/g-street.png",
+    "model": "fal-flux",
+    "style": "indo-western streetwear"
+  },
+  "g-accessory": {
+    "path": "/v4/gallery/g-accessory.png",
+    "model": "fal-flux",
+    "style": "accessory still campaign"
+  },
+  "g-medit": {
+    "path": "/v4/gallery/g-medit.png",
+    "model": "fal-flux",
+    "style": "sun-drenched campaign"
+  },
+  "g-quiet": {
+    "path": "/v4/gallery/g-quiet.png",
+    "model": "fal-flux",
+    "style": "quiet-luxury muted crop"
+  },
+  "g-brutalist": {
+    "path": "/v4/gallery/g-brutalist.png",
+    "model": "fal-flux",
+    "style": "brutalist concrete art-set"
+  },
+  "g-painterly": {
+    "path": "/v4/gallery/g-painterly.png",
+    "model": "fal-flux",
+    "style": "painterly cinematic interior"
+  },
+  "g-mature": {
+    "path": "/v4/gallery/g-mature.png",
+    "model": "fal-flux",
+    "style": "elegant studio portrait"
+  },
+  "g-macro": {
+    "path": "/v4/gallery/g-macro.png",
+    "model": "fal-flux",
+    "style": "tactile craft macro"
+  },
+  "g-eastasian": {
+    "path": "/v4/gallery/g-eastasian.png",
+    "model": "fal-flux",
+    "style": "high-key minimal studio"
+  },
+  "g-anarkali": {
+    "path": "/v4/gallery/g-anarkali.png",
+    "model": "fal-flux",
+    "style": "festive warm interior"
+  },
+  "look-red-carpet": {
+    "path": "/v4/looks/look-red-carpet.png",
+    "model": "fal-flux",
+    "style": "red-carpet gala"
+  },
+  "look-quiet-luxury": {
+    "path": "/v4/looks/look-quiet-luxury.png",
+    "model": "fal-flux",
+    "style": "quiet luxury"
+  },
+  "look-sun-drenched": {
+    "path": "/v4/looks/look-sun-drenched.png",
+    "model": "fal-flux",
+    "style": "sun-drenched campaign"
+  },
+  "look-noir": {
+    "path": "/v4/looks/look-noir.png",
+    "model": "fal-flux",
+    "style": "art-house noir"
+  },
+  "look-heritage": {
+    "path": "/v4/looks/look-heritage.png",
+    "model": "fal-flux",
+    "style": "indian heritage"
+  },
+  "look-brutalist": {
+    "path": "/v4/looks/look-brutalist.png",
+    "model": "fal-flux",
+    "style": "brutalist art-set"
+  },
+  "look-atelier": {
+    "path": "/v4/looks/look-atelier.png",
+    "model": "fal-flux",
+    "style": "tactile craft macro"
+  },
+  "look-catalog": {
+    "path": "/v4/looks/look-catalog.png",
+    "model": "fal-flux",
+    "style": "clean catalog"
+  },
+  "look-painterly": {
+    "path": "/v4/looks/look-painterly.png",
+    "model": "fal-flux",
+    "style": "painterly cinematic"
+  },
+  "look-street": {
+    "path": "/v4/looks/look-street.png",
+    "model": "fal-flux",
+    "style": "urban street"
+  },
+  "empty-studio": {
+    "path": "/v4/empty/empty-studio.png",
+    "model": "fal-flux",
+    "style": "empty atelier set"
+  },
+  "empty-casting": {
+    "path": "/v4/empty/empty-casting.png",
+    "model": "fal-flux",
+    "style": "casting board"
+  },
+  "sample-product": {
+    "path": "/v4/empty/sample-product.png",
+    "model": "fal-flux",
+    "style": "flat-lay sample"
+  },
+  "tex-plaster": {
+    "path": "/v4/texture/tex-plaster.png",
+    "model": "fal-flux",
+    "style": "warm plaster wall"
+  },
+  "tex-concrete": {
+    "path": "/v4/texture/tex-concrete.png",
+    "model": "fal-flux",
+    "style": "brutalist concrete"
+  },
+  "tex-linen": {
+    "path": "/v4/texture/tex-linen.png",
+    "model": "fal-flux",
+    "style": "oatmeal linen"
+  },
+  "tex-paper": {
+    "path": "/v4/texture/tex-paper.png",
+    "model": "fal-flux",
+    "style": "deckle paper"
+  },
+  "tex-onyx": {
+    "path": "/v4/texture/tex-onyx.png",
+    "model": "fal-flux",
+    "style": "warm onyx void"
+  }
+}

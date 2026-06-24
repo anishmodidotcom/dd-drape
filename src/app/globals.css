@@ -1,60 +1,61 @@
-/* Oviya Studio design system. One dark cinematic editorial system across marketing, auth, and
- * studio. Near-black layered surfaces (never pure black), one committed accent (temple gold),
- * off-white body text (never pure white), serif display + grotesk body, glass on overlays, film
- * grain. Token NAMES preserved for continuity; values repointed to the Oviya palette. */
+/* Oviya design system, v4. "The Atelier in the Void": one token structure, two equally first-class
+ * worlds (light cream + dark onyx), one confident oxblood accent. Colors live in tokens.css
+ * (OKLCH primitives -> themed semantics -> component/legacy aliases). This file owns the
+ * non-color tokens (type, space, radius, shadow, motion) and the component styles. */
 :root {
-  /* Base canvas + 4 elevation levels (never pure black). */
-  --ink: #0b0b0f; /* page base */
-  --ink-soft: #16161b; /* rail / inset */
-  --surface: #121217; /* elevation 1 (cards) */
-  --surface-2: #1a1a21; /* elevation 2 (menus, popovers) */
-  --surface-3: #232330; /* elevation 3 (raised / active) */
+  /* Type voices: editorial display serif, premium grotesk, atelier mono. */
+  --font-display: var(--font-bodoni), "Bodoni Moda", Georgia, serif;
+  --font-ui: var(--font-hanken), system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-dm-mono), ui-monospace, "SF Mono", monospace;
 
-  /* Text (never pure white). */
-  --porcelain: #f1f5f9; /* primary body/heading */
-  --text-soft: #e0e0e0; /* secondary body */
-  --fog: #8a8a93; /* muted / captions */
-
-  /* One committed accent: temple gold / champagne. */
-  --accent: #c9a24b;
-  --accent-soft: #d9b768;
-  --accent-deep: #a8842f;
-  --saffron: var(--accent); /* legacy alias -> single accent */
-  --orchid: var(--accent); /* legacy alias -> single accent */
-
-  --success: #4cae7a;
-  --caution: #d9b768;
-  --danger: #d9655a;
-
-  /* Hairlines. */
-  --line: rgba(255, 255, 255, 0.1);
-  --line-soft: rgba(255, 255, 255, 0.06);
-  --line-accent: color-mix(in srgb, var(--accent) 45%, transparent);
-
-  /* A restrained gold gradient (used sparingly; the system is mostly flat dark). */
-  --gradient-brand: linear-gradient(135deg, #d9b768 0%, #c9a24b 50%, #a8842f 100%);
-
-  /* Glass (overlays only). */
-  --glass-bg: color-mix(in srgb, var(--ink) 72%, transparent);
-  --glass-line: rgba(255, 255, 255, 0.12);
+  /* Type scale (~1.25 minor third), tracking + leading. */
+  --step--1: clamp(0.8rem, 0.78rem + 0.1vw, 0.86rem);
+  --step-0: 1rem;
+  --step-1: clamp(1.2rem, 1.1rem + 0.5vw, 1.5rem);
+  --step-2: clamp(1.5rem, 1.3rem + 1vw, 2.2rem);
+  --step-3: clamp(2rem, 1.6rem + 2vw, 3.3rem);
+  --step-4: clamp(2.6rem, 1.8rem + 4vw, 5rem);
+  --step-5: clamp(3.4rem, 2rem + 7vw, 8rem);
+  --step-6: clamp(4.2rem, 2rem + 11vw, 10rem);
+  --leading-tight: 1.04;
+  --leading-body: 1.6;
+  --tracking-display: -0.02em;
+  --tracking-eyebrow: 0.18em;
 
   --radius: 14px;
   --radius-sm: 10px;
   --radius-lg: 20px;
+  --radius-xs: 7px;
 
-  /* Elevation shadows. */
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.4);
-  --shadow-2: 0 8px 24px rgba(0, 0, 0, 0.45);
-  --shadow-3: 0 18px 50px rgba(0, 0, 0, 0.55);
+  /* Warm, soft elevation shadows (light). Dark overrides below to luminance-led depth. */
+  --shadow-1: 0 1px 2px rgba(38, 28, 18, 0.06);
+  --shadow-2: 0 10px 30px rgba(38, 28, 18, 0.1);
+  --shadow-3: 0 24px 60px rgba(38, 28, 18, 0.14);
 
-  /* Motion tokens (spring-ish; transform+opacity only). */
+  /* Glass (overlays only). */
+  --glass-bg: color-mix(in oklab, var(--surface-overlay) 78%, transparent);
+
+  /* Motion tokens (transform + opacity only). */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --dur-fast: 0.16s;
   --dur: 0.28s;
   --dur-entrance: 0.4s;
+}
 
-  --font-display: var(--font-fraunces), "Playfair Display", Georgia, serif;
-  --font-ui: var(--font-inter), system-ui, sans-serif;
+.dark .grain {
+  opacity: 0.09;
+}
+.dark {
+  /* Dark depth leans on luminance from the token ladder; shadows are deep and quiet. */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-2: 0 10px 30px rgba(0, 0, 0, 0.5);
+  --shadow-3: 0 24px 64px rgba(0, 0, 0, 0.6);
+}
+/* Scoped light panes (e.g. /design side-by-side) get the warm soft shadows back. */
+.light {
+  --shadow-1: 0 1px 2px rgba(38, 28, 18, 0.06);
+  --shadow-2: 0 10px 30px rgba(38, 28, 18, 0.1);
+  --shadow-3: 0 24px 60px rgba(38, 28, 18, 0.14);
 }
 
 * {
@@ -67,10 +68,11 @@ body {
 }
 body {
   font-family: var(--font-ui);
-  color: var(--porcelain);
-  background: var(--ink);
+  color: var(--text-primary);
+  background: var(--surface-base);
   -webkit-font-smoothing: antialiased;
-  line-height: 1.5;
+  line-height: var(--leading-body);
+  transition: background var(--dur) var(--ease-out), color var(--dur) var(--ease-out);
 }
 h1,
 h2,
@@ -113,7 +115,7 @@ a {
 }
 .btn-primary {
   background: var(--gradient-brand);
-  color: #1a1407;
+  color: var(--accent-contrast);
   font-weight: 600;
   box-shadow: var(--shadow-1);
 }
@@ -130,7 +132,7 @@ a {
 .btn-ghost:hover:not(:disabled),
 .btn-ghost-dark:hover:not(:disabled) {
   border-color: var(--fog);
-  background: rgba(255, 255, 255, 0.04);
+  background: color-mix(in oklab, var(--text-primary) 6%, transparent);
 }
 .btn-block {
   width: 100%;
@@ -214,7 +216,7 @@ textarea.input {
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-3);
   padding: 6px;
 }
 .cs-opt {
@@ -226,7 +228,7 @@ textarea.input {
 }
 .cs-opt:hover,
 .cs-opt[data-active="true"] {
-  background: rgba(255, 255, 255, 0.07);
+  background: color-mix(in oklab, var(--text-primary) 8%, transparent);
 }
 .cs-opt[data-selected="true"] {
   color: var(--saffron);
@@ -327,7 +329,7 @@ textarea.input {
   position: absolute;
   inset: 0;
   transform: translateX(-100%);
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.09), transparent);
+  background: linear-gradient(90deg, transparent, color-mix(in oklab, var(--text-primary) 10%, transparent), transparent);
   animation: drape-shimmer 1.4s infinite;
 }
 @keyframes drape-shimmer {
@@ -418,7 +420,7 @@ textarea.input {
   min-height: 100vh;
 }
 .rail {
-  background: #121212;
+  background: var(--surface-raised);
   color: var(--porcelain);
   padding: 24px 18px;
   display: flex;
@@ -575,7 +577,7 @@ textarea.input {
   padding: 12px 14px;
   font-size: 14px;
   color: var(--porcelain);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-2);
   display: flex;
   gap: 10px;
   align-items: flex-start;
@@ -630,21 +632,97 @@ textarea.input {
   position: fixed;
   inset: 0;
   z-index: 1;
-  opacity: 0.09;
+  opacity: 0.05;
   mix-blend-mode: overlay;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
 /* ---------- Accent text + display ---------- */
 .accent {
-  color: var(--accent);
+  color: var(--accent-default);
 }
 .display {
   font-family: var(--font-display);
+  letter-spacing: var(--tracking-display);
+  line-height: var(--leading-tight);
 }
 .serif-italic {
   font-family: var(--font-display);
   font-style: italic;
+}
+.mono {
+  font-family: var(--font-mono);
+}
+
+/* ---------- Oviya range slider (semantic, accent-filled track) ---------- */
+.oviya-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-default) var(--pct, 50%), var(--border-strong) var(--pct, 50%));
+  outline: none;
+  cursor: pointer;
+}
+.oviya-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface-overlay);
+  border: 2px solid var(--accent-default);
+  box-shadow: var(--shadow-1);
+  cursor: grab;
+  transition: transform var(--dur-fast) var(--ease-out);
+}
+.oviya-range::-webkit-slider-thumb:active {
+  transform: scale(1.12);
+  cursor: grabbing;
+}
+.oviya-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--surface-overlay);
+  border: 2px solid var(--accent-default);
+  cursor: grab;
+}
+
+/* ---------- Alive-gradient background scaffold (WebGL swaps in a later phase) ---------- */
+.alive-wash {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  opacity: 0.5;
+  will-change: transform;
+}
+.alive-a {
+  width: 52vw;
+  height: 52vw;
+  top: -14vw;
+  left: -8vw;
+  background: radial-gradient(circle, color-mix(in oklab, var(--accent-default) 55%, transparent), transparent 68%);
+  animation: alive-drift-a 26s var(--ease-out) infinite alternate;
+}
+.alive-b {
+  width: 46vw;
+  height: 46vw;
+  bottom: -16vw;
+  right: -10vw;
+  background: radial-gradient(circle, color-mix(in oklab, var(--indigo) 48%, transparent), transparent 68%);
+  animation: alive-drift-b 32s var(--ease-out) infinite alternate;
+}
+@keyframes alive-drift-a {
+  to {
+    transform: translate3d(8vw, 6vw, 0) scale(1.15);
+  }
+}
+@keyframes alive-drift-b {
+  to {
+    transform: translate3d(-7vw, -5vw, 0) scale(1.1);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -657,4 +735,102 @@ textarea.input {
   .grain {
     display: none;
   }
+}
+
+/* ============================ Phase 3: the product surface ============================ */
+/* Top app bar (replaces the left rail so the studio gets the full page). */
+.appshell { min-height: 100vh; display: flex; flex-direction: column; }
+.appbar {
+  position: sticky; top: 0; z-index: 40;
+  display: flex; align-items: center; gap: 18px;
+  padding: 11px clamp(14px, 3vw, 30px);
+  border-bottom: 1px solid var(--border-subtle);
+  background: color-mix(in oklab, var(--surface-base) 84%, transparent);
+  backdrop-filter: blur(14px) saturate(120%);
+}
+.appbar-nav { display: flex; gap: 3px; }
+.appbar-tab {
+  padding: 7px 14px; border-radius: 999px; font-size: 14px; font-weight: 500;
+  color: var(--text-secondary); white-space: nowrap; transition: color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.appbar-tab:hover { color: var(--text-primary); }
+.appbar-tab[data-active="true"] { color: var(--accent-contrast); background: var(--accent-default); }
+.appbar-spacer { margin-left: auto; }
+.appmain { flex: 1; min-width: 0; }
+.page { max-width: 1200px; margin: 0 auto; padding: 28px clamp(16px, 4vw, 40px) 120px; }
+
+/* Mobile: hide top tabs, show a thumb-reachable bottom tab bar. */
+.app-bottomtabs { display: none; }
+@media (max-width: 860px) {
+  .appbar-nav { display: none; }
+  .app-bottomtabs {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    border-top: 1px solid var(--border-subtle);
+    background: color-mix(in oklab, var(--surface-base) 92%, transparent);
+    backdrop-filter: blur(16px); padding: 6px 6px calc(6px + env(safe-area-inset-bottom));
+  }
+  .app-bottomtabs a {
+    flex: 1; text-align: center; font-size: 11px; padding: 7px 2px; border-radius: 10px;
+    color: var(--text-muted); display: grid; gap: 3px; justify-items: center;
+  }
+  .app-bottomtabs a[data-active="true"] { color: var(--accent-default); }
+  .app-bottomtabs a span.dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; opacity: 0; }
+  .app-bottomtabs a[data-active="true"] span.dot { opacity: 1; }
+}
+
+/* Full-page studio: canvas hero on the left, control rail on the right. */
+.studio3 { display: grid; grid-template-columns: 1fr 392px; min-height: calc(100vh - 56px); }
+.studio3-canvas {
+  position: relative; min-width: 0; padding: clamp(16px, 2.5vw, 32px);
+  display: flex; flex-direction: column; gap: 18px;
+  background:
+    radial-gradient(130% 90% at 30% 0%, color-mix(in oklab, var(--accent-default) 5%, transparent), transparent 55%),
+    var(--surface-base);
+}
+.studio3-rail {
+  border-left: 1px solid var(--border-subtle);
+  background: var(--surface-raised);
+  display: flex; flex-direction: column; min-height: 0;
+}
+.studio3-railscroll { overflow-y: auto; padding: 20px; display: grid; gap: 22px; align-content: start; flex: 1; scrollbar-width: thin; }
+
+/* Action bar (free brief + chips + shoot). */
+.actionbar3 {
+  display: grid; gap: 12px; padding: 16px clamp(16px, 2.5vw, 24px);
+  border-radius: var(--radius-lg); border: 1px solid var(--border-subtle);
+  background: linear-gradient(180deg, var(--surface-raised), var(--surface-base));
+  box-shadow: var(--shadow-2);
+}
+
+/* Segmented toggle (Basic/Advanced, Draft/Hero). */
+.seg { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--surface-sunken); border: 1px solid var(--border-subtle); }
+.seg button {
+  border: none; background: none; cursor: pointer; font-family: var(--font-ui); font-size: 13px; font-weight: 500;
+  padding: 6px 14px; border-radius: 999px; color: var(--text-muted); transition: color var(--dur-fast), background var(--dur-fast);
+}
+.seg button[data-on="true"] { color: var(--accent-contrast); background: var(--accent-default); }
+
+/* Control panels (accordion sections) in the right rail. */
+.panel { border: 1px solid var(--border-subtle); border-radius: var(--radius); background: var(--surface-base); overflow: hidden; }
+.panel > summary, .panel-head {
+  list-style: none; cursor: pointer; display: flex; align-items: center; justify-content: space-between;
+  padding: 13px 15px; font-family: var(--font-ui); font-weight: 600; font-size: 14px; color: var(--text-primary);
+}
+.panel > summary::-webkit-details-marker { display: none; }
+.panel > summary .panel-sel { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); font-weight: 400; }
+.panel-body { padding: 4px 15px 16px; display: grid; gap: 12px; }
+.panel-eyebrow { font-family: var(--font-mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--accent-default); }
+
+/* Canvas frames + result. */
+.canvas3 {
+  flex: 1; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); overflow: hidden;
+  background: var(--surface-raised); display: grid; place-items: center; position: relative; min-height: 380px;
+}
+.shotgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 14px; }
+.tilecard { border: 1px solid var(--border-subtle); border-radius: var(--radius); overflow: hidden; background: var(--surface-raised); transition: border-color var(--dur-fast), box-shadow var(--dur-fast); }
+.tilecard:hover { border-color: var(--border-strong); box-shadow: var(--shadow-2); }
+
+@media (max-width: 980px) {
+  .studio3 { grid-template-columns: 1fr; }
+  .studio3-rail { display: none; }
 }

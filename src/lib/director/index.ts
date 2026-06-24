@@ -15,30 +15,35 @@ import {
 import type { Composition, ProductAnalysis, ReferenceImages, RoutedGeneration } from "./schema";
 
 // The prompt-director orchestrator: Analyze -> Compose -> Route, with deterministic fallback.
-// Returns everything the job runner needs to generate a reference-locked still.
+// Returns everything the job runner needs to generate a reference-locked still. Handles a single
+// product, MULTIPLE distinct products (item 2), a saved/uploaded model identity (item 1/7), free
+// text (item 4), and the Replace source (item 6).
 
 export interface DirectInput {
   spec: ShotSpec;
-  /** Signed, fetchable product image URLs (the exact item). At least one required. */
+  /** Signed, fetchable product image URLs, one per distinct article. At least one required. */
   productImageUrls: string[];
-  /** Optional saved-model identity reference URL(s). */
+  /** Optional saved/uploaded model identity reference URL(s). */
   modelIdentityUrls?: string[];
   /** Optional scene/vibe reference URL. */
   sceneUrl?: string;
+  /** Replace (item 6): the source still URL the product(s) are swapped into. */
+  replaceSourceUrl?: string;
   /** Free-text brief from the user. */
   freeBrief?: string;
-  /** Cached analysis from drape_products, to skip re-analysis. */
-  cachedAnalysis?: ProductAnalysis | null;
+  /** Cached analysis per product (index-aligned with productImageUrls). Skips re-analysis. */
+  cachedAnalyses?: (ProductAnalysis | null)[];
 }
 
 export interface DirectResult {
+  /** Per-product analyses, index-aligned with productImageUrls. */
+  analyses: ProductAnalysis[];
+  /** Primary product analysis (analyses[0]); kept for back-compat. */
   analysis: ProductAnalysis;
   composition: Composition;
   routed: RoutedGeneration;
   tier: Tier;
-  /** Set when RED policy blocks generation (no fabricated facets). */
   blocked?: string;
-  /** Whether Claude (vs the deterministic fallback) produced the composition. */
   usedClaude: boolean;
 }
 
@@ -50,19 +55,34 @@ export async function directShot(input: DirectInput): Promise<DirectResult> {
   const hasModelIdentity = !!(input.modelIdentityUrls && input.modelIdentityUrls.length > 0);
   let usedClaude = false;
 
-  // Stage 1 - Analyze (cached if available).
-  let analysis: ProductAnalysis;
-  if (input.cachedAnalysis) {
-    analysis = input.cachedAnalysis;
-  } else if (directorEnabled()) {
-    try {
-      analysis = await analyzeProduct(productImageUrls[0]);
-      usedClaude = true;
-    } catch {
-      analysis = fallbackAnalysis(spec);
+  // Stage 1 - Analyze EACH product (cached per product where available). Item 2.
+  const analyses: ProductAnalysis[] = [];
+  for (let i = 0; i < productImageUrls.length; i++) {
+    const cached = input.cachedAnalyses?.[i];
+    if (cached) {
+      analyses.push(cached);
+    } else if (directorEnabled()) {
+      try {
+        analyses.push(await analyzeProduct(productImageUrls[i]));
+        usedClaude = true;
+      } catch {
+        analyses.push(fallbackAnalysis(spec));
+      }
+    } else {
+      analyses.push(fallbackAnalysis(spec));
     }
-  } else {
-    analysis = fallbackAnalysis(spec);
+  }
+  const analysis = analyses[0];
+
+  // Build the intent. For multiple products, surface every product's analysis so the director
+  // reasons about each distinct article it must preserve simultaneously.
+  let intentText = specToIntentText(spec, input.freeBrief);
+  if (analyses.length > 1) {
+    intentText =
+      `PRODUCT ANALYSES (${analyses.length} distinct articles, preserve each):\n` +
+      analyses.map((a, i) => `Product ${i + 1}: ${JSON.stringify(a)}`).join("\n") +
+      "\n\n" +
+      intentText;
   }
 
   // Stage 2 - Compose.
@@ -70,9 +90,13 @@ export async function directShot(input: DirectInput): Promise<DirectResult> {
   if (directorEnabled()) {
     try {
       composition = await composeShot(analysis, {
-        intentText: specToIntentText(spec, input.freeBrief),
+        intentText,
         hasModelIdentity,
-        referenceCount: productImageUrls.length + (hasModelIdentity ? 1 : 0) + (input.sceneUrl ? 1 : 0),
+        referenceCount:
+          (input.replaceSourceUrl ? 1 : 0) +
+          productImageUrls.length +
+          (hasModelIdentity ? input.modelIdentityUrls!.length : 0) +
+          (input.sceneUrl ? 1 : 0),
       });
       usedClaude = true;
     } catch {
@@ -82,10 +106,9 @@ export async function directShot(input: DirectInput): Promise<DirectResult> {
     composition = fallbackCompose(spec, analysis, hasModelIdentity);
   }
 
-  // ONE routing brain (audit item 3): the cost-bearing route is decided deterministically by
-  // planNeed, identical to what /api/estimate quoted. Claude still wrote the prompt/params, but it
-  // does not get to change the need (and therefore the price). planNeed reads model identity from
-  // the spec; reflect any identity passed via modelIdentityUrls so the tryon route matches.
+  // ONE routing brain: the cost-bearing route is decided deterministically by planNeed, identical to
+  // what /api/estimate quoted. planNeed reads model identity + product count + replace from the
+  // spec; reflect identity passed via modelIdentityUrls so the route matches.
   const routeSpec: ShotSpec = hasModelIdentity
     ? { ...spec, modelImagePaths: spec.modelImagePaths?.length ? spec.modelImagePaths : input.modelIdentityUrls }
     : spec;
@@ -99,15 +122,17 @@ export async function directShot(input: DirectInput): Promise<DirectResult> {
   });
   const policy = redPolicy(spec, tier);
 
-  // Stage 3 - Route (deterministic; attaches the product image, guards against text-to-image).
+  // Stage 3 - Route (deterministic; attaches the references, guards against text-to-image).
   const refs: ReferenceImages = {
     product: productImageUrls,
     modelIdentity: input.modelIdentityUrls,
     scene: input.sceneUrl,
+    replaceSource: input.replaceSourceUrl,
   };
   const routed = route(composition, refs);
 
   return {
+    analyses,
     analysis,
     composition,
     routed,

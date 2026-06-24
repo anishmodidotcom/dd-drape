@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUser } from "@/lib/supabase/server";
-import { planRoute } from "@/lib/shot/plan";
-import { estimate } from "@/lib/engine/estimator";
+import { planRoute, planCredits } from "@/lib/shot/plan";
 import type { ShotSpec } from "@/lib/shot/spec";
 
 // POST /api/estimate { spec }
@@ -29,11 +28,14 @@ export async function POST(req: NextRequest) {
 
   try {
     const plan = planRoute(spec);
-    const est = estimate({ need: plan.need, count: 1 });
+    // Single source of truth for cost, covering directed shoots (N frames) and video (seconds), so
+    // the quote equals what the runner charges.
+    const { credits, count } = planCredits(spec);
     return NextResponse.json({
       need: plan.need,
       tier: plan.tier,
-      credits: est.credits,
+      credits,
+      count,
       blocked: plan.blocked ?? null,
     });
   } catch (err) {

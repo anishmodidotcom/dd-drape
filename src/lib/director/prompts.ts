@@ -6,7 +6,11 @@ export const ANTI_SLOP_NEGATIVE =
   "plastic skin, waxy skin, poreless, airbrushed, over-smoothed, mannequin, doll-like, " +
   "extra fingers, fused fingers, missing fingers, melting hands, deformed hands, warped fabric, " +
   "distorted print, smeared pattern, floating jewellery, duplicated logo, garbled text, " +
-  "uncanny face, asymmetric eyes, blurry, lowres, jpeg artifacts, oversaturated";
+  "uncanny face, asymmetric eyes, blurry, lowres, jpeg artifacts, oversaturated, " +
+  // Anti-collage (item 1): forbid the multi-reference edit failure where the references are laid out
+  // side by side instead of composed into one cohesive frame.
+  "collage, grid, split screen, side by side, multiple panels, picture-in-picture, contact sheet, " +
+  "photo of a photo, before and after, duplicated person, two people where there should be one";
 
 export const REALISM_POSITIVE =
   "natural skin texture with visible pores and subtle realistic imperfections, lifelike hands " +
@@ -43,7 +47,10 @@ export const COMPOSE_SYSTEM = `You are Drape's shot director. Given a product an
 
 Compose rules:
 - positive_prompt: long and fidelity-locked. RE-STATE the exact product from the analysis as preservation locks, e.g. "preserve the exact [primary_color_name] ([primary_color_hex]) [fabric] [garment_subtype] with [print_or_pattern] and [embroidery_type] from the reference image; reproduce the stitching, drape and neckline faithfully; do not reinvent the product." Fill only attributes that are present.
-- Reference roles when multiple images are attached: state "Image 1 is the exact product, preserve it; Image 2 is the model identity; Image 3 is the scene reference."
+- SINGLE-SUBJECT LOCK (critical): the output is ALWAYS one cohesive photograph of one scene. NEVER depict the reference images themselves, and NEVER lay them out as a collage, grid, split screen, side-by-side panels, picture-in-picture, or contact sheet. The references are guidance only.
+- Reference roles by image position (the host attaches images in this order): name each, e.g. "Image 1 is the exact product, preserve it; Image 2 is the model identity, the output person must have this exact face/hair/body, but do not show this photo; Image 3 is the scene reference." When a SOURCE scene is provided for a replace, Image 1 is the source to keep and the product images follow.
+- MULTIPLE PRODUCTS: when several distinct products are attached (e.g. a top and a bottom and jewellery), compose ALL of them onto the SAME single model in one coherent outfit, each product preserved with full fidelity simultaneously. List each product's preservation locks.
+- FREE TEXT IS AUTHORITATIVE: the user's free-text descriptions (global brief and any per-control text) are first-class and may OVERRIDE or augment the structured selections. Integrate them faithfully into the prompt; if free text conflicts with a preset, the free text wins.
 - Add fabric-physics positives matching the material (cotton diffuses light, silk reflects, georgette sheer drape, denim coarse weave).
 - negative_prompt: 10 to 30 anti-slop terms, paired with the realism positives in the positive prompt (negatives alone muddy the image).
 - Translate user-friendly choices to model language (e.g. "Golden hour" becomes the full lighting description).

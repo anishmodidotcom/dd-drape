@@ -35,8 +35,11 @@ export interface RunInput {
   meta?: Record<string, unknown>;
   /** Human-readable label for the credit ledger (e.g. "Saree shot", "Video"). No internal codes. */
   creditLabel?: string;
-  /** Post-generation fidelity gate: compares source product vs output, refunds on a non-match. */
-  fidelityGate?: { sourceUrl: string };
+  /**
+   * Post-generation fidelity gate: compares EACH source product against the output (item 2). All
+   * products must match; any non-match refunds the whole shot. Refunds on a non-match.
+   */
+  fidelityGate?: { sourceUrls: string[] };
 }
 
 export const FIDELITY_FAIL_PREFIX = "FIDELITY_FAIL: ";
@@ -154,13 +157,21 @@ export async function runJob(input: RunInput): Promise<RunResult> {
       } else {
         try {
           const outUrl = await signedUrl(path, 600);
-          const verdict = await checkFidelity(input.fidelityGate.sourceUrl, outUrl);
-          if (!verdict.match) {
+          // Check every product against the output (multi-product, item 2). The first non-match
+          // fails the whole shot, so we stop early and report which product drifted.
+          const sources = input.fidelityGate.sourceUrls;
+          let failReasons: string[] | null = null;
+          for (let i = 0; i < sources.length; i++) {
+            const verdict = await checkFidelity(sources[i], outUrl);
+            if (!verdict.match) {
+              const which = sources.length > 1 ? `product ${i + 1}: ` : "";
+              failReasons = [which + (verdict.reasons.join("; ") || "product drifted from the source")];
+              break;
+            }
+          }
+          if (failReasons) {
             await refundCredits(input.userId, est.credits, job.id, `${label}, refunded`);
-            await markJobFailed(
-              job.id,
-              `${FIDELITY_FAIL_PREFIX}${verdict.reasons.join("; ") || "product drifted from the source"}`
-            );
+            await markJobFailed(job.id, `${FIDELITY_FAIL_PREFIX}${failReasons.join("; ")}`);
             return {
               jobId: job.id,
               status: "failed",
