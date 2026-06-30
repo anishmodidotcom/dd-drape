@@ -133,10 +133,38 @@ export interface Database {
         Update: Partial<Database["public"]["Tables"]["drape_jobs"]["Insert"]>;
         Relationships: [];
       };
+      drape_admin_actions: {
+        Row: {
+          id: string;
+          admin_id: string;
+          admin_email: string | null;
+          action: string;
+          target_user_id: string | null;
+          amount: number | null;
+          reason: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          admin_id: string;
+          admin_email?: string | null;
+          action: string;
+          target_user_id?: string | null;
+          amount?: number | null;
+          reason?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["drape_admin_actions"]["Insert"]>;
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
     Functions: {
       drape_grant_credits: {
+        Args: { p_user_id: string; p_amount: number; p_note?: string | null };
+        Returns: number;
+      };
+      drape_admin_adjust: {
         Args: { p_user_id: string; p_amount: number; p_note?: string | null };
         Returns: number;
       };
