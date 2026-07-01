@@ -26,7 +26,9 @@ export function ResendConfirm() {
       });
       if (error) throw error;
       setDone(true);
-    } catch {
+    } catch (err) {
+      // Same permanent diagnostic breadcrumb as the signup form: console only, never user-facing.
+      console.error("[oviya:auth]", err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : err);
       setError("We could not resend just now. Try again in a moment.");
     } finally {
       setBusy(false);

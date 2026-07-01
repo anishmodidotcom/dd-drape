@@ -112,6 +112,14 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       router.push("/app/new");
       router.refresh();
     } catch (err) {
+      // Permanent diagnostic breadcrumb: console only, never shown to the user (the user always
+      // sees authMessage(err), a clean string). Without this, a thrown error before any network
+      // request (e.g. a client-config problem) is otherwise invisible: nothing reaches the network
+      // tab and nothing reaches the server, so devtools console is the only place to see it.
+      console.error(
+        "[oviya:auth]",
+        err instanceof Error ? { name: err.name, message: err.message, stack: err.stack } : err
+      );
       setError(authMessage(err)); // always a clean string; never an object/symbol
       setBusy(false);
     }

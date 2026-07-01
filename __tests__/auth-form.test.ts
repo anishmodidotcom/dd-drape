@@ -43,4 +43,12 @@ describe("authMessage (signup/login error hardening)", () => {
   it("shows a real specific sentence from the client as is", () => {
     expect(authMessage(new Error("Password should be at least 6 characters."))).toContain("6 characters");
   });
+
+  it("a client-config failure (getBrowserClient's env-validation throw) never leaks to the user", () => {
+    const msg = authMessage(new Error("client_config_error"));
+    expect(msg).toBe("Something went wrong. Please try again.");
+    expect(msg.toLowerCase()).not.toContain("supabase");
+    expect(msg.toLowerCase()).not.toContain("env");
+    expect(msg.toLowerCase()).not.toContain("config");
+  });
 });
