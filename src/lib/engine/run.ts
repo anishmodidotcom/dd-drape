@@ -7,7 +7,9 @@ import { runSync } from "./fal";
 import { storeOutputFromUrl, storeManifest, signedUrl } from "./storage";
 import { buildProvenanceManifest } from "@/lib/shot/provenance";
 import { directorEnabled } from "@/lib/director/client";
-import { checkFidelity } from "@/lib/director/gate";
+import { checkFidelity, isFidelityHardOk } from "@/lib/director/gate";
+import type { FidelityVerdict } from "@/lib/director/schema";
+import { maybeUpscaleImage } from "./upscale";
 
 // Orchestration for the async job flow (Section 3.3).
 //
@@ -159,13 +161,24 @@ export async function runJob(input: RunInput): Promise<RunResult> {
           const outUrl = await signedUrl(path, 600);
           // Check every product against the output (multi-product, item 2). The first non-match
           // fails the whole shot, so we stop early and report which product drifted.
+          //
+          // Phase 5 calibration (docs/ENGINE_QUALITY_AUDIT.md 3.5): detail_ok (fine surface detail -
+          // embroidery/zari/weave/facets) is a HARD fidelity concern, same tier as color/pattern/
+          // garment, because a result that smooths away the chikankari or melts the zari is exactly
+          // the "passes the gate but isn't premium" failure the audit found. sharp_ok/no_ai_look are
+          // diagnostic-only: judging sharpness/glow from a single vision pass is more subjective, and
+          // hard-failing on them risked over-refunding good, faithful shots. They are recorded, never
+          // block delivery.
           const sources = input.fidelityGate.sourceUrls;
           let failReasons: string[] | null = null;
+          const verdicts: (FidelityVerdict & { productIndex: number })[] = [];
           for (let i = 0; i < sources.length; i++) {
             const verdict = await checkFidelity(sources[i], outUrl);
-            if (!verdict.match) {
+            verdicts.push({ ...verdict, productIndex: i });
+            if (!isFidelityHardOk(verdict)) {
               const which = sources.length > 1 ? `product ${i + 1}: ` : "";
-              failReasons = [which + (verdict.reasons.join("; ") || "product drifted from the source")];
+              const detailNote = !verdict.detail_ok ? "fine detail (embroidery, print or texture) was not preserved" : "";
+              failReasons = [which + (verdict.reasons.join("; ") || detailNote || "product drifted from the source")];
               break;
             }
           }
@@ -181,13 +194,23 @@ export async function runJob(input: RunInput): Promise<RunResult> {
                 "We caught a fidelity drift between the result and your product, so we did not deliver it. Your credits were refunded.",
             };
           }
-          await setJobFidelity(job, "verified").catch(() => {});
+          // Passed the hard gate. Store the full verdict (incl. diagnostic sharp_ok/no_ai_look) so a
+          // per-product breakdown is available to the UI/audit even on a clean pass.
+          await setJobFidelity(job, "verified", { verdicts }).catch(() => {});
         } catch (gateErr) {
           // The gate could not run. Deliver the output but flag it unverified, do not imply a match.
           console.warn(`[fidelity] gate error for job ${job.id}, flagged unverified:`, gateErr);
           await setJobFidelity(job, "unverified").catch(() => {});
         }
       }
+    }
+
+    // Still upscale (audit fix 4, feature-flagged): after the fidelity gate passes, optionally sharpen
+    // a Hero/Replace result to recover weave/stitch detail. OFF by default (no DRAPE_UPSCALE_SLUG set)
+    // so this never spends against an unverified fal slug; see src/lib/engine/upscale.ts. Never fails
+    // the job: a failed upscale silently keeps the original, already-verified output.
+    if (input.need === "image/hero" || input.need === "image/replace") {
+      await maybeUpscaleImage(path).catch((e) => console.warn(`[upscale] skipped for job ${job.id}:`, e));
     }
 
     // Provenance (Section 10): write a C2PA-style manifest sidecar for every output.

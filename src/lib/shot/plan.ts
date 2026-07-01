@@ -17,6 +17,20 @@ export function hasModelIdentity(spec: ShotSpec): boolean {
   return !!(spec.modelImagePaths && spec.modelImagePaths.length > 0);
 }
 
+// Phase 5 / audit fix 7: sub-types with heavy ethnic surface detail (embroidery, zari, mirror-work,
+// dense pleating) where a garment-placement try-on model risks flattening the very detail that makes
+// the piece premium. A live A/B of FASHN vs Nano Banana Pro on this exact question was out of the
+// Step 0 test budget (that budget was reserved for the negative-prompt question); this routes to the
+// safer default the audit already reasoned through (3.6): reserve FASHN for plain garments where
+// placement matters more than texture, and use the multi-reference identity-locked hero edit (same
+// anti-collage machinery already used for multi-product) for heavy-detail ethnic wear. Needs a live
+// A/B to confirm and potentially relax. Known at spec-build time (the user's own sub-type pick), so
+// this never breaks quoted == charged between /api/estimate and the real run.
+const HEAVY_DETAIL_SUBTYPES = new Set(["saree", "lehenga", "anarkali", "sherwani", "salwar"]);
+export function isHeavyEthnicDetail(spec: ShotSpec): boolean {
+  return spec.category === "apparel" && HEAVY_DETAIL_SUBTYPES.has(spec.subType);
+}
+
 export function productCount(spec: ShotSpec): number {
   return spec.referenceImagePaths?.length || 1;
 }
@@ -42,8 +56,11 @@ export function planNeed(spec: ShotSpec): Need {
     spec.framing === "full-length" ||
     spec.framing === "three-quarter";
 
-  // Try-on (FASHN) is single-garment only: never route multi-product through it.
-  if (hasModelIdentity(spec) && spec.category === "apparel" && isOnModel && !multiProduct) return "tryon";
+  // Try-on (FASHN) is single-garment only: never route multi-product through it. Heavy-ethnic-detail
+  // apparel also skips it in favour of the identity-locked hero edit (see isHeavyEthnicDetail above).
+  if (hasModelIdentity(spec) && spec.category === "apparel" && isOnModel && !multiProduct && !isHeavyEthnicDetail(spec)) {
+    return "tryon";
+  }
   // Multi-product needs the multi-reference edit model (up to 14 refs), so it always uses hero.
   if (multiProduct) return "image/hero";
   if (spec.quality === "standard") return "image/standard";

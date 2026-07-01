@@ -36,6 +36,9 @@ export function specToIntentText(spec: ShotSpec, freeBrief?: string): string {
   if (spec.colourVariant) lines.push(`Colour variant requested: ${spec.colourVariant}.`);
   if (spec.format) lines.push(`Output format: ${spec.format}.`);
   lines.push(`Quality: ${spec.quality ?? "hero"}.`);
+  if (typeof spec.latitude === "number") {
+    lines.push(`Fidelity latitude: ${spec.latitude} out of 100 (higher = preserve the product more strictly). The app binds this to the final strength parameter deterministically; pick a sensible params.strength reflecting it as your starting point.`);
+  }
   if ((spec.outputCount ?? 1) > 1) {
     lines.push(`DIRECTED SHOOT: ${spec.outputCount} frames as one coherent editorial set, ${spec.variateModel ? "varying the model across frames" : "the same model in every frame"}; vary pose, angle, framing and crop between frames like a real photographer working a look.`);
   }

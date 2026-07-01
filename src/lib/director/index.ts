@@ -2,6 +2,7 @@ import "server-only";
 import { classifyTier, type Tier } from "@/lib/engine/tier";
 import { redPolicy } from "@/lib/shot/compose";
 import { planNeed } from "@/lib/shot/plan";
+import { strengthFromLatitude } from "@/lib/shot/quality";
 import type { ShotSpec } from "@/lib/shot/spec";
 import { directorEnabled } from "./client";
 import { analyzeProduct } from "./analyze";
@@ -113,6 +114,14 @@ export async function directShot(input: DirectInput): Promise<DirectResult> {
     ? { ...spec, modelImagePaths: spec.modelImagePaths?.length ? spec.modelImagePaths : input.modelIdentityUrls }
     : spec;
   composition.model_route = planNeed(routeSpec);
+
+  // Fidelity-latitude binding (audit fix 6): the user's explicit slider is deterministic and always
+  // wins over whatever strength Claude may have guessed, same "one source of truth" pattern as the
+  // route override above. Only overrides when the user actually set a latitude.
+  const boundStrength = strengthFromLatitude(spec.latitude);
+  if (boundStrength !== undefined) {
+    composition.params = { ...composition.params, strength: boundStrength };
+  }
 
   // Tier + RED policy (no fabricated facets).
   const tier = classifyTier({

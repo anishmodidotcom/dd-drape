@@ -80,12 +80,23 @@ export interface ReferenceImages {
   replaceSource?: string;
 }
 
-// Fidelity-gate verdict (post-generation critique).
+// Fidelity-gate verdict (post-generation critique). Phase 5: detail_ok joins the hard-fidelity set
+// (embroidery/weave/facet preservation is a product-fidelity concern, not a photographic-quality
+// opinion, so it is calibrated as a hard fail+refund like color/pattern/garment). sharp_ok and
+// no_ai_look are diagnostic quality signals only, recorded but NOT hard-fail: judging sharpness/glow
+// from a single vision pass is more subjective, and hard-failing on them risked false-failing good,
+// faithful output (over-refunding legitimate shots). See docs/ENGINE_QUALITY_AUDIT.md Part 3.5.
 export interface FidelityVerdict {
   match: boolean;
   color_ok: boolean;
   pattern_ok: boolean;
   garment_ok: boolean;
+  /** Hard fidelity: fine surface detail (embroidery/zari/weave/facets) preserved, not smoothed away. */
+  detail_ok: boolean;
+  /** Diagnostic only: product region is critically sharp, not soft/blurred. */
+  sharp_ok: boolean;
+  /** Diagnostic only: no plastic/waxy sheen, bloom, haze, or unnatural glow on the product. */
+  no_ai_look: boolean;
   reasons: string[];
 }
 

@@ -1,3 +1,12 @@
+> **Phase 5 update (implemented):** Step 0's live test resolved finding E below. See
+> `docs/PHASE_5_QUALITY.md` for the full implementation report. Summary: negative_prompt IS
+> respected by `fal-ai/nano-banana-pro/edit` (a live A/B showed a visible reduction in golden-hour
+> glow/haze and background blur with a blur/glow negative present); `resolution:"2K"` and a
+> `strength` field are both accepted without error. Guardrails were built belt-and-suspenders
+> (strong negatives + an enforced positive quality block), and all of Part 3's fixes were
+> implemented. This document is kept as the historical audit; it is no longer fully current on its
+> own past the note above.
+
 # Oviya — Engine Quality Audit (read-only)
 
 Scope: trace the full generation path, find every place output quality leaks (slop, blur, glow,

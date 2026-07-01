@@ -31,7 +31,9 @@ function matchSubType(category: Category, raw: string | null): string | null {
 export function Studio({ savedModels: initialModels = [] }: { savedModels?: SavedModelOption[] }) {
   const router = useRouter();
   const [mode, setMode] = useState<"basic" | "advanced">("basic");
-  const [quality, setQuality] = useState<"standard" | "hero">("standard");
+  // Premium by default (Phase 5 / audit fix 1): Hero is the out-of-box quality; Draft is an explicit
+  // opt-down for fast/cheap iteration, never the default.
+  const [quality, setQuality] = useState<"standard" | "hero">("hero");
 
   const [products, setProducts] = useState<UploadedItem[]>([]);
   const [vibeRef] = useState<UploadedItem | null>(null);
@@ -73,7 +75,7 @@ export function Studio({ savedModels: initialModels = [] }: { savedModels?: Save
     try {
       const d = JSON.parse(localStorage.getItem(DRAFT_KEY) ?? "null");
       if (!d) return;
-      setMode(d.mode ?? "basic"); setQuality(d.quality ?? "standard");
+      setMode(d.mode ?? "basic"); setQuality(d.quality ?? "hero");
       if (d.products) setProducts(d.products);
       if (d.analysis) setAnalysis(d.analysis);
       if (d.category) setCategory(d.category);
@@ -131,7 +133,6 @@ export function Studio({ savedModels: initialModels = [] }: { savedModels?: Save
     const presetSpec = usingLook ? getPreset(presetId!)?.spec ?? {} : adv;
     const framing = presetSpec.framing ?? adv.framing;
     const shotType = usingLook ? presetSpec.shotType ?? framingToShotType(framing, "on-model-full") : framingToShotType(adv.framing, shotTypeOverride);
-    const ft = { ...freeTextMap, latitude: `keep the product about ${latitude} percent strict (lower means more creative latitude)` };
     return {
       ...presetSpec,
       category, subType, shotType,
@@ -139,7 +140,9 @@ export function Studio({ savedModels: initialModels = [] }: { savedModels?: Save
       vibeReferencePath: vibeRef?.path,
       modelImagePaths: selectedModel?.image_paths,
       freeBrief: freeBrief.trim() || undefined,
-      freeText: Object.keys(ft).length ? ft : undefined,
+      freeText: Object.keys(freeTextMap).length ? freeTextMap : undefined,
+      // Bound deterministically to a real generation strength (Phase 5 fix 6), not prose.
+      latitude,
       quality,
       outputCount,
       variateModel: outputCount > 1 ? variateModel : undefined,

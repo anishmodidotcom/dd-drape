@@ -12,6 +12,13 @@
 //   fal-ai/fashn/tryon/v1.6               required [model_image, garment_image]
 //   fal-ai/bria/background/remove         required [image_url]
 //   fal-ai/kling-video/v3/pro/image-to-video  required [start_image_url]
+//
+// Phase 5 (docs/ENGINE_QUALITY_AUDIT.md Step 0) LIVE-CONFIRMED on fal-ai/nano-banana-pro/edit:
+// negative_prompt IS respected (an A/B with the same source, prompt and resolution:"2K" showed a
+// visible reduction in golden-hour glow/haze and shallow-DoF background blur with a blur/glow
+// negative present). resolution:"2K" also confirmed to actually change the render (1792x2400 output).
+// Guardrails are built as belt-and-suspenders: strong negatives (this file's callers) PLUS an
+// enforced positive quality block (src/lib/shot/quality.ts), never negative-only.
 
 export type Need =
   | "image/standard"

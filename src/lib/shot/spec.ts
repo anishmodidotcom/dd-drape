@@ -229,6 +229,13 @@ export interface ShotSpec {
   /** Item 8: persist the uploaded product(s) to the user's collection for reuse. */
   saveProduct?: boolean;
 
+  /**
+   * Fidelity latitude (Phase 5 / audit fix 6): 0-100, higher = more strict/preserve the product,
+   * lower = more creative latitude for the director. Bound deterministically to a real generation
+   * strength parameter (src/lib/shot/quality.ts strengthFromLatitude), not passed as prose.
+   */
+  latitude?: number;
+
   video?: VideoSpec;
 
   /** Provenance: embed the visible "Created with AI" label on the output. */

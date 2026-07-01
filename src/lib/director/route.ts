@@ -4,7 +4,18 @@
 // silently send a text-only request. This is the structural half of the v2 fidelity fix.
 
 import { assertReferenceCapable, type ModelEntry, type Need } from "@/lib/engine/registry";
+import { HERO_MIN_RESOLUTION, floorImageSize } from "@/lib/shot/quality";
 import type { Composition, ReferenceImages, RoutedGeneration } from "./schema";
+
+// Resolution floor (audit fix 4 / Phase 5), confirmed live in Step 0: fal-ai/nano-banana-pro/edit
+// accepts resolution:"2K" and returns a real 2K-class image (1792x2400 in the test render). Hero and
+// Replace both run on this slug, so both get the floor; never let either resolve to an omitted or
+// 1K resolution, which softens fine detail (embroidery/weave) for no reason.
+const RESOLUTION_ORDER: Record<"1K" | "2K" | "4K", number> = { "1K": 1, "2K": 2, "4K": 3 };
+function floorResolution(res: "1K" | "2K" | "4K" | undefined): "1K" | "2K" | "4K" {
+  if (!res || RESOLUTION_ORDER[res] < RESOLUTION_ORDER[HERO_MIN_RESOLUTION]) return HERO_MIN_RESOLUTION;
+  return res;
+}
 
 function attachReference(
   entry: ModelEntry,
@@ -82,10 +93,24 @@ export function route(composition: Composition, refs: ReferenceImages): RoutedGe
     num_images: p.num_images ?? 1,
   };
   if (composition.negative_prompt) falInput.negative_prompt = composition.negative_prompt;
-  if (p.resolution) falInput.resolution = p.resolution;
-  if (p.image_size) falInput.image_size = p.image_size;
+
+  // Resolution floor: never omit or under-set resolution on Hero/Replace (both fal-ai/nano-banana-pro/
+  // edit, confirmed live in Step 0 that resolution:"2K" is read and changes the render). Deliberately
+  // NOT forced onto "image/edit" (GPT Image 2): that slug's resolution/quality field names were not
+  // live-verified in this pass, and forcing an unverified field risks a hard rejection on a strict
+  // API rather than a harmless no-op, which would regress the masked-edit path. [needs a live test]
+  // to extend the floor there with the correct native field name.
+  const isNanoBananaFamily = need === "image/hero" || need === "image/replace";
+  if (isNanoBananaFamily) {
+    falInput.resolution = floorResolution(p.resolution);
+  } else if (p.resolution) {
+    falInput.resolution = p.resolution;
+  }
+  // image_size floor (Seedream draft + any slug using explicit pixel dimensions instead of the
+  // resolution enum): scale a too-small preset up to the minimum short edge rather than render soft.
+  if (p.image_size) falInput.image_size = floorImageSize(p.image_size);
   if (p.aspect_ratio) falInput.aspect_ratio = p.aspect_ratio;
-  if (typeof p.strength === "number") falInput.strength = p.strength;
+  if (typeof p.strength === "number") falInput.strength = Math.min(0.95, Math.max(0.05, p.strength));
 
   // Guard 2: attach the product to the correct field.
   attachReference(entry, refs, falInput);

@@ -76,11 +76,22 @@ export async function createJob(input: CreateJobInput): Promise<JobRow> {
 }
 
 // Records the fidelity-gate outcome on the job payload (verified | unverified | failed) so the
-// result screen can surface "unverified" rather than implying a verified match.
-export async function setJobFidelity(job: JobRow, status: FidelityStatus) {
+// result screen can surface "unverified" rather than implying a verified match. Phase 5: an optional
+// `detail` payload carries the per-product verdict flags (color_ok/pattern_ok/garment_ok/detail_ok
+// plus the diagnostic-only sharp_ok/no_ai_look) so a per-product breakdown can be surfaced in the UI
+// later, closing a documented gap without a schema migration (payload is jsonb).
+export async function setJobFidelity(
+  job: JobRow,
+  status: FidelityStatus,
+  detail?: Record<string, unknown>
+) {
   const admin = getAdminClient();
   const payload = { ...(job.payload ?? {}) } as Record<string, unknown>;
-  const meta = { ...((payload.meta as Record<string, unknown>) ?? {}), fidelity: status };
+  const meta = {
+    ...((payload.meta as Record<string, unknown>) ?? {}),
+    fidelity: status,
+    ...(detail ? { fidelityDetail: detail } : {}),
+  };
   payload.meta = meta;
   const { error } = await admin
     .from("drape_jobs")

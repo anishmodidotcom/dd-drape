@@ -5,6 +5,7 @@
 
 import type { Tier } from "@/lib/engine/tier";
 import type { ShotSpec, Category } from "./spec";
+import { QUALITY_POSITIVE, HOUSE_GRADE, CATEGORY_QUALITY, sanitizeFreeText } from "./quality";
 
 // Human-readable fragments for each enum value, for natural prompt language.
 const ETHNICITY_TEXT: Record<string, string> = {
@@ -186,6 +187,25 @@ export function referenceRolesClause(opts: {
   return lines.join(" ");
 }
 
+// Fold the user's free-text direction (global brief + every per-control note, sanitized against
+// slop-stacking, "latitude" excluded since it has its own numeric strength channel) into one clause.
+// This closes a real gap: buildPrompt previously never read freeText/freeBrief at all, so on the
+// deterministic fallback path (no ANTHROPIC_API_KEY, or a Claude error) a user's free-text direction
+// was silently dropped from the actual generation prompt.
+function freeTextClause(spec: ShotSpec): string {
+  const parts: string[] = [];
+  const brief = sanitizeFreeText(spec.freeBrief);
+  if (brief) parts.push(brief);
+  if (spec.freeText) {
+    for (const [key, value] of Object.entries(spec.freeText)) {
+      if (key === "latitude") continue; // bound to a real strength parameter, not prose
+      const clean = sanitizeFreeText(value);
+      if (clean) parts.push(clean);
+    }
+  }
+  return parts.length ? `Also incorporate: ${parts.join("; ")}.` : "";
+}
+
 // Builds the natural-language prompt. No em dashes (brand rule).
 export function buildPrompt(spec: ShotSpec): string {
   const sentences: string[] = [];
@@ -210,6 +230,12 @@ export function buildPrompt(spec: ShotSpec): string {
     );
     sentences.push(fidelityClause(spec.category));
     sentences.push(referenceRolesClause({ productCount, hasIdentity, isReplace: true }));
+    const ft = freeTextClause(spec);
+    if (ft) sentences.push(ft);
+    // The enforced quality baseline (non-negotiable, never overridden by free text).
+    sentences.push(QUALITY_POSITIVE);
+    sentences.push(CATEGORY_QUALITY[spec.category]);
+    sentences.push(HOUSE_GRADE);
     sentences.push(
       "Natural, realistic result with lifelike skin and hands. No plastic skin, no distortion, no artificial smoothness."
     );
@@ -254,6 +280,17 @@ export function buildPrompt(spec: ShotSpec): string {
   if (productCount > 1 || hasIdentity) {
     sentences.push(referenceRolesClause({ productCount, hasIdentity }));
   }
+
+  // The user's free-text direction (sanitized against slop-stacking). Shapes the SHOOT, never the
+  // quality baseline below, which is why it comes before the enforced quality block, not after.
+  const ft = freeTextClause(spec);
+  if (ft) sentences.push(ft);
+
+  // The enforced quality baseline (Phase 5 / audit fix 2): non-negotiable, always appended last so
+  // it cannot be diluted or overridden by anything above, including user free text.
+  sentences.push(QUALITY_POSITIVE);
+  sentences.push(CATEGORY_QUALITY[spec.category]);
+  sentences.push(HOUSE_GRADE);
 
   // Realism guardrail (the "AI tell" kills premium trust).
   sentences.push(
