@@ -4,6 +4,47 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { getBrowserClient } from "@/lib/supabase/client";
 
+// Turn ANY thrown value into a clean human string. Never lets a raw object/Error/symbol reach a
+// setState -> JSX render (the source of a stray "{}" or "[object Object]" in the DOM: rendering a
+// non-Error object, or an Error whose .message is missing/empty, previously fell through to
+// String(err) territory in ad hoc catch blocks elsewhere in the app). This is the single place auth
+// errors are translated, so the guarantee is centralized, not re-derived per call site.
+export function authMessage(err: unknown): string {
+  const raw =
+    err instanceof Error && err.message
+      ? err.message
+      : typeof err === "string" && err
+        ? err
+        : typeof err === "object" && err !== null && "message" in err && typeof (err as { message?: unknown }).message === "string"
+          ? ((err as { message: string }).message)
+          : "";
+
+  // Map known Supabase auth error text to calm, on-brand copy (no vendor names, no raw codes).
+  if (/already registered|already exists|user_already_exists/i.test(raw)) {
+    return "An account with that email already exists. Try signing in instead.";
+  }
+  if (/invalid login credentials/i.test(raw)) {
+    return "That email or password is not right. Please try again.";
+  }
+  if (/email not confirmed/i.test(raw)) {
+    return "Please confirm your email first. Check your inbox for the link.";
+  }
+  if (/rate limit|too many/i.test(raw)) {
+    return "Too many attempts. Please wait a moment and try again.";
+  }
+  if (/network|fetch failed|failed to fetch/i.test(raw)) {
+    return "We could not reach the server. Check your connection and try again.";
+  }
+  // A specific message is only shown verbatim if it reads like a real sentence (has a space and
+  // ends in punctuation-free prose), never a bare error-class/code string like "AuthApiError:
+  // unexpected_failure" or "PGRST116" - those fall back to the generic message instead of leaking
+  // implementation detail to the user.
+  if (raw && /\s/.test(raw) && !/^[A-Za-z]+(Error|Exception):/.test(raw) && !/^[a-z0-9_]+$/i.test(raw)) {
+    return raw;
+  }
+  return "Something went wrong. Please try again.";
+}
+
 // Email/password auth (v1). Signup adds: show-password toggle, confirm-password, inline written
 // validation, and Terms/Privacy consent (MN6).
 export function AuthForm({ mode }: { mode: "login" | "signup" }) {
@@ -37,12 +78,16 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
 
   async function onSubmit(ev: React.FormEvent) {
     ev.preventDefault();
+    if (busy) return; // guard against a double submit (double-click, slow network + repeat Enter)
     setError(null);
     setNotice(null);
     if (!validate()) return;
     setBusy(true);
-    const supabase = getBrowserClient();
     try {
+      // Init the client INSIDE the try so a misconfigured environment (missing/incorrect public
+      // Supabase env vars) surfaces as a clean message instead of an uncaught throw that breaks the
+      // render. This is also the code-vs-config tell: this branch means the env is not set right.
+      const supabase = getBrowserClient();
       if (isSignup) {
         const { data, error } = await supabase.auth.signUp({
           email,
@@ -52,6 +97,9 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
           options: { emailRedirectTo: `${window.location.origin}/auth/callback` },
         });
         if (error) throw error;
+        // Email confirmation ON => no session yet; the user must confirm. (Supabase also returns a
+        // sessionless success for an existing address, to prevent enumeration, so we show the same
+        // reassuring notice either way.)
         if (!data.session) {
           setNotice("Check your inbox to confirm your email. The link brings you right back to step on set.");
           setBusy(false);
@@ -64,7 +112,7 @@ export function AuthForm({ mode }: { mode: "login" | "signup" }) {
       router.push("/app/new");
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Try again.");
+      setError(authMessage(err)); // always a clean string; never an object/symbol
       setBusy(false);
     }
   }
