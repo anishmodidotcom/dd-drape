@@ -5,9 +5,9 @@ import { isAdminEmail, adminEmails, validateAdjustInput, MAX_ADJUST } from "@/li
 afterEach(() => { delete process.env.ADMIN_EMAILS; });
 
 describe("admin allowlist (the server-side gate predicate)", () => {
-  it("the founder email is a built-in admin, case-insensitive", () => {
-    expect(isAdminEmail("anish.modi@deeperdesigns.in")).toBe(true);
-    expect(isAdminEmail("Anish.Modi@DeeperDesigns.in")).toBe(true);
+  it("the built-in oviyastudio.com admins match, case-insensitive", () => {
+    expect(isAdminEmail("support@oviyastudio.com")).toBe(true);
+    expect(isAdminEmail("Admin@OviyaStudio.com")).toBe(true);
   });
   it("a normal user is NOT an admin", () => {
     expect(isAdminEmail("someone@gmail.com")).toBe(false);
@@ -19,7 +19,7 @@ describe("admin allowlist (the server-side gate predicate)", () => {
     process.env.ADMIN_EMAILS = "ops@oviya.studio, second@oviya.studio";
     expect(isAdminEmail("ops@oviya.studio")).toBe(true);
     expect(isAdminEmail("second@oviya.studio")).toBe(true);
-    expect(adminEmails()).toContain("anish.modi@deeperdesigns.in"); // builtin still present
+    expect(adminEmails()).toContain("support@oviyastudio.com"); // builtin still present
     expect(isAdminEmail("nope@oviya.studio")).toBe(false);
   });
 });

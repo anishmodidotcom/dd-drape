@@ -2,7 +2,9 @@
 // allowlist is the founder's email built in, extensible via the ADMIN_EMAILS env var (comma
 // separated). This is read SERVER-SIDE only (by src/lib/admin/auth.ts); it is never a client check.
 
-const BUILTIN_ADMINS = ["anish.modi@deeperdesigns.in"];
+// Built-in superadmins on the oviyastudio.com domain (Anish controls this domain). Add any other
+// login email via the ADMIN_EMAILS env var. No external domains are hardcoded.
+const BUILTIN_ADMINS = ["support@oviyastudio.com", "admin@oviyastudio.com"];
 
 export function adminEmails(): string[] {
   const fromEnv = (process.env.ADMIN_EMAILS ?? "")

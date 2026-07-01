@@ -64,4 +64,4 @@ export function approxOutputs(credits: number): { heroStills: number; draftStill
   };
 }
 
-export const SUPPORT_EMAIL = "anish.modi@deeperdesigns.in";
+export const SUPPORT_EMAIL = "support@oviyastudio.com";
